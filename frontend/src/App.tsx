@@ -71,13 +71,41 @@ function App() {
       alert("물건 이름을 입력하세요")
       return
     }
-    setSavedItems((prev) => [...prev, { name: form.name, form }])
+
+    setSavedItems((prev) => {
+      const existingIndex = prev.findIndex(item => item.name === form.name)
+      let updated
+
+      if (existingIndex !== -1) {
+        // 같은 이름이 있으면 해당 항목을 덮어쓰기
+        updated = [...prev]
+        updated[existingIndex] = { name: form.name, form }
+      } else {
+        // 없으면 새 항목으로 추가
+        updated = [...prev, { name: form.name, form }]
+      }
+
+      // localStorage도 반영
+      localStorage.setItem("savedItems", JSON.stringify(updated))
+      return updated
+    })
   }
+
 
   const handleLoad = (form: any) => {
     setActiveForm(form)
     handleCalculate(form)
   }
+
+  const handleDelete = (name: string) => {
+    if (!confirm(`'${name}' 항목을 삭제하시겠습니까?`)) return
+
+    const updated = savedItems.filter(item => item.name !== name)
+    setSavedItems(updated)
+    localStorage.setItem("savedItems", JSON.stringify(updated))
+    setFormData({ ...defaultFormData }) // 삭제 후 폼 초기화
+  }
+
 
   const pageSize = 60
   const paginated = schedule ? schedule.slice(page * pageSize, (page + 1) * pageSize) : []
@@ -102,7 +130,7 @@ function App() {
 
       {/* 본문 */}
       <main className="flex-1 p-6 overflow-x-auto">
-        <InputForm onCalculate={handleCalculate} onSave={handleSave} defaultForm={activeForm} />
+        <InputForm onCalculate={handleCalculate} onSave={handleSave} onDelete={handleDelete} defaultForm={activeForm} />
         {result && <ResultCard {...result} />}
         {schedule && (
           <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md p-6">

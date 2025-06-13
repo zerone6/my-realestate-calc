@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 interface FormProps {
   onCalculate: (form: any) => void
   onSave: (form: any) => void
+  onDelete: (name: string) => void
   defaultForm?: any
 }
 
-export default function InputForm({ onCalculate, onSave, defaultForm }: FormProps) {
+export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }: FormProps) {
   const [form, setForm] = useState({
     name: '',
     price: '',
@@ -45,6 +46,13 @@ export default function InputForm({ onCalculate, onSave, defaultForm }: FormProp
       <div className="space-x-2">
         <button onClick={() => onCalculate(form)} className="bg-blue-500 text-white px-4 py-2 rounded">계산하기</button>
         <button onClick={() => onSave(form)} className="bg-green-500 text-white px-4 py-2 rounded">저장</button>
+        <button
+          type="button"
+          onClick={() => onDelete(form.name)}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          삭제
+        </button>
       </div>
     </div>
   )
