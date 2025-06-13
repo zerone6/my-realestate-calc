@@ -1,28 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import InputForm from './components/InputForm'
 import ResultCard from './components/ResultCard'
 
 function App() {
-  const [result, setResult] = useState<null | {
-    monthlyPayment: string
-    yearlyIncome: string
-    yearlyCost: string
-    yearlyProfit: string
-    yieldPercent: string
-    grossYield: string
-  }>(null)
+  const [result, setResult] = useState(null)
+  const [schedule, setSchedule] = useState(null)
+  const [page, setPage] = useState(0)
+  const [savedItems, setSavedItems] = useState<{ name: string; form: any }[]>([])
+  const [activeForm, setActiveForm] = useState<any | null>(null)
 
-  const [schedule, setSchedule] = useState<null | any[]>(null)
+  useEffect(() => {
+    const saved = localStorage.getItem('realestate-items')
+    if (saved) {
+      setSavedItems(JSON.parse(saved))
+    }
+  }, [])
 
-  const handleCalculate = (form: {
-    price: string
-    loan: string
-    rate: string
-    term: string
-    rent: string
-    expense: string
-    startDate: string
-  }) => {
+  useEffect(() => {
+    localStorage.setItem('realestate-items', JSON.stringify(savedItems))
+  }, [savedItems])
+
+  const handleCalculate = (form: any) => {
     const price = parseFloat(form.price) * 10000
     const loan = parseFloat(form.loan) * 10000
     const i = parseFloat(form.rate) / 100 / 12
@@ -65,44 +63,93 @@ function App() {
     }
 
     setSchedule(repaymentSchedule)
+    setPage(0)
   }
 
+  const handleSave = (form: any) => {
+    if (!form.name) {
+      alert("물건 이름을 입력하세요")
+      return
+    }
+    setSavedItems((prev) => [...prev, { name: form.name, form }])
+  }
+
+  const handleLoad = (form: any) => {
+    setActiveForm(form)
+    handleCalculate(form)
+  }
+
+  const pageSize = 60
+  const paginated = schedule ? schedule.slice(page * pageSize, (page + 1) * pageSize) : []
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <InputForm onCalculate={handleCalculate} />
-      {result && <ResultCard {...result} />}
-      {schedule && (
-        <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-xl font-bold mb-4">상환 일정표 (35년간)</h3>
-          <div className="overflow-auto max-h-[600px]">
-            <table className="min-w-full text-sm text-left border border-gray-200">
-              <thead className="bg-gray-100 sticky top-0">
-                <tr>
-                  <th className="px-3 py-2 border">회차</th>
-                  <th className="px-3 py-2 border">날짜</th>
-                  <th className="px-3 py-2 border">상환 총액</th>
-                  <th className="px-3 py-2 border">원금</th>
-                  <th className="px-3 py-2 border">이자</th>
-                  <th className="px-3 py-2 border">대출 잔액</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedule.slice(0, 60).map((item) => (
-                  <tr key={item.no}>
-                    <td className="px-3 py-2 border">{item.no}회차</td>
-                    <td className="px-3 py-2 border">{item.date}</td>
-                    <td className="px-3 py-2 border">{item.payment.toLocaleString()} 円</td>
-                    <td className="px-3 py-2 border">{item.principal.toLocaleString()}</td>
-                    <td className="px-3 py-2 border">{item.interest.toLocaleString()}</td>
-                    <td className="px-3 py-2 border">{item.balance.toLocaleString()}</td>
+    <div className="min-h-screen flex bg-gray-100">
+      {/* 좌측 사이드바 */}
+      <aside className="w-64 bg-white shadow-md p-4">
+        <h2 className="text-xl font-bold mb-4">📂 저장된 계산</h2>
+        <ul className="space-y-2">
+          {savedItems.map((item, idx) => (
+            <li
+              key={idx}
+              className="cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600"
+              onClick={() => handleLoad(item.form)}
+            >
+              {item.name}
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      {/* 본문 */}
+      <main className="flex-1 p-6 overflow-x-auto">
+        <InputForm onCalculate={handleCalculate} onSave={handleSave} defaultForm={activeForm} />
+        {result && <ResultCard {...result} />}
+        {schedule && (
+          <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-xl font-bold mb-4">상환 일정표 (35년간)</h3>
+            <div className="overflow-auto max-h-[600px]">
+              <table className="min-w-full text-sm text-left border border-gray-200">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 border">회차</th>
+                    <th className="px-3 py-2 border">날짜</th>
+                    <th className="px-3 py-2 border">상환 총액</th>
+                    <th className="px-3 py-2 border">원금</th>
+                    <th className="px-3 py-2 border">이자</th>
+                    <th className="px-3 py-2 border">대출 잔액</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="text-xs text-gray-500 mt-2">※ 처음 60개월(5년치)만 표시 중</div>
+                </thead>
+                <tbody>
+                  {paginated.map((item) => (
+                    <tr key={item.no}>
+                      <td className="px-3 py-2 border">{item.no}회차</td>
+                      <td className="px-3 py-2 border">{item.date}</td>
+                      <td className="px-3 py-2 border">{item.payment.toLocaleString()} 円</td>
+                      <td className="px-3 py-2 border">{item.principal.toLocaleString()}</td>
+                      <td className="px-3 py-2 border">{item.interest.toLocaleString()}</td>
+                      <td className="px-3 py-2 border">{item.balance.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                <span>※ {pageSize * (page + 1)}개월 중 {Math.min(schedule.length, (page + 1) * pageSize)}개월 표시 중</span>
+                <div className="space-x-2">
+                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                    className="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">
+                    ◀ 이전
+                  </button>
+                  <button onClick={() => setPage(p => (p + 1) * pageSize < schedule.length ? p + 1 : p)}
+                    disabled={(page + 1) * pageSize >= schedule.length}
+                    className="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">
+                    다음 ▶
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   )
 }
