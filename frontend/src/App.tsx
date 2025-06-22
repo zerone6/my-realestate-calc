@@ -2,12 +2,34 @@ import { useEffect, useState } from 'react'
 import InputForm from './components/InputForm'
 import ResultCard from './components/ResultCard'
 
+// API 응답 타입 정의
+interface CalculationResult {
+  monthlyPayment: string
+  yearlyIncome: string
+  yearlyCost: string
+  yearlyProfit: string
+  yieldPercent: string
+  grossYield: string
+  schedule: RepaymentSchedule[]
+}
+
+interface RepaymentSchedule {
+  no: number
+  date: string
+  payment: number
+  principal: number
+  interest: number
+  balance: number
+}
+
 function App() {
-  const [result, setResult] = useState(null)
-  const [schedule, setSchedule] = useState(null)
+  const [result, setResult] = useState<CalculationResult | null>(null)
+  const [schedule, setSchedule] = useState<RepaymentSchedule[] | null>(null)
   const [page, setPage] = useState(0)
   const [savedItems, setSavedItems] = useState<{ name: string; form: any }[]>([])
   const [activeForm, setActiveForm] = useState<any | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('realestate-items')
@@ -20,50 +42,43 @@ function App() {
     localStorage.setItem('realestate-items', JSON.stringify(savedItems))
   }, [savedItems])
 
-  const handleCalculate = (form: any) => {
-    const price = parseFloat(form.price) * 10000
-    const loan = parseFloat(form.loan) * 10000
-    const i = parseFloat(form.rate) / 100 / 12
-    const n = parseFloat(form.term) * 12
-    const monthlyPayment = i === 0 ? loan / n : loan * i / (1 - Math.pow(1 + i, -n))
-    const yearlyIncome = parseFloat(form.rent) * 12
-    const yearlyCost = parseFloat(form.expense) + (monthlyPayment * 12 - (loan / n) * 12)
-    const yearlyProfit = yearlyIncome - yearlyCost
-    const yieldPercent = (yearlyProfit / price) * 100
-    const grossYield = (yearlyIncome / price) * 100
+  const handleCalculate = async (form: any) => {
+    setLoading(true)
+    setError(null)
 
-    setResult({
-      monthlyPayment: Math.round(monthlyPayment).toLocaleString(),
-      yearlyIncome: Math.round(yearlyIncome).toLocaleString(),
-      yearlyCost: Math.round(yearlyCost).toLocaleString(),
-      yearlyProfit: Math.round(yearlyProfit).toLocaleString(),
-      yieldPercent: yieldPercent.toFixed(2),
-      grossYield: grossYield.toFixed(2)
-    })
-
-    const startDate = form.startDate ? new Date(form.startDate) : new Date()
-    const repaymentSchedule = []
-    let remaining = loan
-
-    for (let j = 1; j <= n; j++) {
-      const interest = remaining * i
-      const principal = monthlyPayment - interest
-      remaining -= principal
-      const date = new Date(startDate)
-      date.setMonth(date.getMonth() + j - 1)
-
-      repaymentSchedule.push({
-        no: j,
-        date: date.toISOString().split('T')[0],
-        payment: Math.round(monthlyPayment),
-        principal: Math.round(principal),
-        interest: Math.round(interest),
-        balance: Math.round(Math.max(0, remaining))
+    try {
+      const response = await fetch('http://localhost:8080/api/calculation/calculate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: form.name,
+          price: parseFloat(form.price),
+          loan: parseFloat(form.loan),
+          rate: parseFloat(form.rate),
+          term: parseInt(form.term),
+          rent: parseFloat(form.rent),
+          expense: parseFloat(form.expense),
+          startDate: form.startDate
+        })
       })
-    }
 
-    setSchedule(repaymentSchedule)
-    setPage(0)
+      if (!response.ok) {
+        throw new Error('계산 요청에 실패했습니다')
+      }
+
+      const calculationResult: CalculationResult = await response.json()
+
+      setResult(calculationResult)
+      setSchedule(calculationResult.schedule)
+      setPage(0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다')
+      console.error('Calculation error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSave = (form: any) => {
@@ -91,7 +106,6 @@ function App() {
     })
   }
 
-
   const handleLoad = (form: any) => {
     setActiveForm(form)
     handleCalculate(form)
@@ -103,9 +117,7 @@ function App() {
     const updated = savedItems.filter(item => item.name !== name)
     setSavedItems(updated)
     localStorage.setItem("savedItems", JSON.stringify(updated))
-    setFormData({ ...defaultFormData }) // 삭제 후 폼 초기화
   }
-
 
   const pageSize = 60
   const paginated = schedule ? schedule.slice(page * pageSize, (page + 1) * pageSize) : []
@@ -131,7 +143,31 @@ function App() {
       {/* 본문 */}
       <main className="flex-1 p-6 overflow-x-auto">
         <InputForm onCalculate={handleCalculate} onSave={handleSave} onDelete={handleDelete} defaultForm={activeForm} />
-        {result && <ResultCard {...result} />}
+
+        {loading && (
+          <div className="max-w-4xl mx-auto mt-6 bg-white rounded-xl shadow-md p-6">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <p className="mt-2 text-gray-600">계산 중...</p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="max-w-4xl mx-auto mt-6 bg-red-50 border border-red-200 rounded-xl shadow-md p-6">
+            <p className="text-red-600">오류: {error}</p>
+          </div>
+        )}
+
+        {result && <ResultCard
+          monthlyPayment={result.monthlyPayment}
+          yearlyIncome={result.yearlyIncome}
+          yearlyCost={result.yearlyCost}
+          yearlyProfit={result.yearlyProfit}
+          yieldPercent={result.yieldPercent}
+          grossYield={result.grossYield}
+        />}
+
         {schedule && (
           <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md p-6">
             <h3 className="text-xl font-bold mb-4">상환 일정표 (35년간)</h3>

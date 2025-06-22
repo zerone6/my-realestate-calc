@@ -14,5 +14,16 @@
   ],
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
-  }
+  },
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.debug.settings.hotCodeReplace": "auto",
+  "java.debug.settings.console": "internalConsole",
+  "java.project.sourcePaths": [
+    "backend/src/main/java"
+  ],
+  "java.project.outputPath": "backend/target/classes",
+  "java.project.referencedLibraries": [
+    "backend/target/dependency/*.jar"
+  ]
 }

@@ -2,15 +2,91 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "npm: dev",
+            "label": "Start Frontend Dev Server",
             "type": "shell",
-            "command": "npm run dev",
-            "isBackground": true,
+            "command": "npm",
+            "args": [
+                "run",
+                "dev"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}/frontend"
             },
+            "group": "build",
             "presentation": {
-                "reveal": "always"
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "vite",
+                "pattern": {
+                    "regexp": "^.*$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*VITE.*ready.*$",
+                    "endsPattern": "^.*Local:.*$"
+                }
+            }
+        },
+        {
+            "label": "Start Backend Server",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "spring-boot:run"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "spring-boot",
+                "pattern": {
+                    "regexp": "^.*$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*Starting.*RealEstateCalcApplication.*$",
+                    "endsPattern": "^.*Started.*RealEstateCalcApplication.*$"
+                }
+            }
+        },
+        {
+            "label": "Start Full Stack Development",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Start Backend Server",
+                "Start Frontend Dev Server"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
             }
         }
     ]
