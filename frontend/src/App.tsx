@@ -20,11 +20,12 @@ interface RepaymentSchedule {
   principal: number
   interest: number
   balance: number
+  estimatedMonthlyRent: number
+  cashFlow: number
 }
 
 function App() {
   const [result, setResult] = useState<CalculationResult | null>(null)
-  const [schedule, setSchedule] = useState<RepaymentSchedule[] | null>(null)
   const [page, setPage] = useState(0)
   const [savedItems, setSavedItems] = useState<{ name: string; form: any }[]>([])
   const [activeForm, setActiveForm] = useState<any | null>(null)
@@ -60,7 +61,11 @@ function App() {
           term: parseInt(form.term),
           rent: parseFloat(form.rent),
           expense: parseFloat(form.expense),
-          startDate: form.startDate
+          startDate: form.startDate,
+          occupancyRate: parseFloat(form.occupancyRate),
+          rentFixedPeriod: parseInt(form.rentFixedPeriod),
+          rentAdjustmentInterval: parseInt(form.rentAdjustmentInterval),
+          rentAdjustmentRate: parseFloat(form.rentAdjustmentRate)
         })
       })
 
@@ -71,7 +76,6 @@ function App() {
       const calculationResult: CalculationResult = await response.json()
 
       setResult(calculationResult)
-      setSchedule(calculationResult.schedule)
       setPage(0)
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다')
@@ -120,7 +124,6 @@ function App() {
   }
 
   const pageSize = 60
-  const paginated = schedule ? schedule.slice(page * pageSize, (page + 1) * pageSize) : []
 
   return (
     <div className="min-h-screen flex bg-gray-100">
@@ -166,53 +169,8 @@ function App() {
           yearlyProfit={result.yearlyProfit}
           yieldPercent={result.yieldPercent}
           grossYield={result.grossYield}
+          schedule={result.schedule}
         />}
-
-        {schedule && (
-          <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4">상환 일정표 (35년간)</h3>
-            <div className="overflow-auto max-h-[600px]">
-              <table className="min-w-full text-sm text-left border border-gray-200">
-                <thead className="bg-gray-100 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 border">회차</th>
-                    <th className="px-3 py-2 border">날짜</th>
-                    <th className="px-3 py-2 border">상환 총액</th>
-                    <th className="px-3 py-2 border">원금</th>
-                    <th className="px-3 py-2 border">이자</th>
-                    <th className="px-3 py-2 border">대출 잔액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((item) => (
-                    <tr key={item.no}>
-                      <td className="px-3 py-2 border">{item.no}회차</td>
-                      <td className="px-3 py-2 border">{item.date}</td>
-                      <td className="px-3 py-2 border">{item.payment.toLocaleString()} 円</td>
-                      <td className="px-3 py-2 border">{item.principal.toLocaleString()}</td>
-                      <td className="px-3 py-2 border">{item.interest.toLocaleString()}</td>
-                      <td className="px-3 py-2 border">{item.balance.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                <span>※ {pageSize * (page + 1)}개월 중 {Math.min(schedule.length, (page + 1) * pageSize)}개월 표시 중</span>
-                <div className="space-x-2">
-                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                    className="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">
-                    ◀ 이전
-                  </button>
-                  <button onClick={() => setPage(p => (p + 1) * pageSize < schedule.length ? p + 1 : p)}
-                    disabled={(page + 1) * pageSize >= schedule.length}
-                    className="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">
-                    다음 ▶
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   )

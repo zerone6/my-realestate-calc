@@ -13,41 +13,41 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
   const [form, setForm] = useState({
     // 첫 번째 블럭: 물건 정보
     name: '',
-    price: '',
-    grossYield: '',
+    price: '0',
+    grossYield: '6.0',
     structure: '목조',
     buildingAge: '22',
-    buildingArea: '',
-    ownCapital: '',
-    buildingPrice: '',
-    occupancyRate: '',
+    buildingArea: '0',
+    ownCapital: '0',
+    buildingPrice: '0',
+    occupancyRate: '100',
 
     // 두 번째 블럭: 대출 정보
-    rate: '',
-    term: '',
-    startDate: '',
+    rate: '2.0',
+    term: '35',
+    startDate: new Date().toISOString().split('T')[0],
 
     // 세 번째 블럭: 수익 및 유지비
-    rent: '',
+    rent: '0',
     rentFixedPeriod: '1', // 월세 고정 기간 (년) - 초기 월세를 유지하는 기간
     rentAdjustmentInterval: '1', // 월세 조정 시기 (년) - 월세 고정 기간 이후 월세를 조정하는 주기
     rentAdjustmentRate: '0', // 월세 조정 비율 (%) - 매 조정 시기마다 월세를 낮출 비율, 기본값 0%
 
     // 수익 및 유지비 추가 항목들
-    propertyTax: '', // 고정자산세+도시계획세 (만엔)
-    managementFeeRate: '', // 관리비 비율 (%) - 연간 임대료 수익 대비
-    managementFee: '', // 관리비 (만엔) - 연간
-    repairCostRate: '', // 수선비 비율 (%) - 연간 임대료 수익 대비
-    repairCost: '', // 수선비 (만엔) - 연간
-    otherExpensesRate: '', // 기타경비 비율 (%) - 연간 임대료 수익 대비
-    otherExpenses: '', // 기타경비 (만엔) - 연간
+    propertyTax: '0', // 고정자산세+도시계획세 (만엔)
+    managementFeeRate: '0', // 관리비 비율 (%) - 연간 임대료 수익 대비
+    managementFee: '0', // 관리비 (만엔) - 연간
+    repairCostRate: '0', // 수선비 비율 (%) - 연간 임대료 수익 대비
+    repairCost: '0', // 수선비 (만엔) - 연간
+    otherExpensesRate: '0', // 기타경비 비율 (%) - 연간 임대료 수익 대비
+    otherExpenses: '0', // 기타경비 (만엔) - 연간
 
     // 네 번째 블럭: 제비용 세부항목
-    initialCost1: '',
-    initialCost2: '',
-    initialCost3: '',
-    initialCost4: '',
-    initialCost5: '',
+    initialCost1: '0',
+    initialCost2: '0',
+    initialCost3: '0',
+    initialCost4: '0',
+    initialCost5: '0',
     initialCost1Name: '제비용 1',
     initialCost2Name: '제비용 2',
     initialCost3Name: '제비용 3',
@@ -55,11 +55,11 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     initialCost5Name: '제비용 5',
 
     // 다섯 번째 블럭: 유지비 세부항목
-    maintenance1: '',
-    maintenance2: '',
-    maintenance3: '',
-    maintenance4: '',
-    maintenance5: '',
+    maintenance1: '0',
+    maintenance2: '0',
+    maintenance3: '0',
+    maintenance4: '0',
+    maintenance5: '0',
     maintenance1Name: '유지비 1',
     maintenance2Name: '유지비 2',
     maintenance3Name: '유지비 3',
@@ -104,6 +104,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
   // 대출 금액 자동 계산 (총매입비용 - 자기자금)
   const loanAmount = Math.max(0, totalPurchaseCost - (parseFloat(form.ownCapital) || 0) * 10000)
 
+  // 연간 수익 계산
+  const annualIncome = (parseFloat(form.rent) || 0) * 12;
+
+  // 입주율 반영 수익 계산
+  const occupancyAdjustedIncome = annualIncome * (parseFloat(form.occupancyRate) / 100);
+
   useEffect(() => {
     if (defaultForm) {
       setForm(defaultForm)
@@ -132,45 +138,42 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
 
     let newForm = { ...form, [name]: value };
 
-    // 제비용이 변경된 경우 표면이율 재계산
-    if (name.startsWith('initialCost') && name !== 'initialCost1Name' && name !== 'initialCost2Name' && name !== 'initialCost3Name' && name !== 'initialCost4Name' && name !== 'initialCost5Name') {
-      const newInitialCostTotal = [
-        parseFloat(newForm.initialCost1) || 0,
-        parseFloat(newForm.initialCost2) || 0,
-        parseFloat(newForm.initialCost3) || 0,
-        parseFloat(newForm.initialCost4) || 0,
-        parseFloat(newForm.initialCost5) || 0
+    // 총매입비용 계산을 위한 함수
+    const calculateTotalPurchaseCost = (currentForm: typeof form) => {
+      const initialCosts = [
+        parseFloat(currentForm.initialCost1) || 0,
+        parseFloat(currentForm.initialCost2) || 0,
+        parseFloat(currentForm.initialCost3) || 0,
+        parseFloat(currentForm.initialCost4) || 0,
+        parseFloat(currentForm.initialCost5) || 0,
       ].reduce((sum, cost) => sum + cost, 0);
+      return (parseFloat(currentForm.price) || 0) * 10000 + initialCosts;
+    };
 
-      const newTotalPurchaseCost = (parseFloat(newForm.price) || 0) * 10000 + newInitialCostTotal;
-      const rent = parseFloat(newForm.rent) || 0;
-      if (rent > 0 && newTotalPurchaseCost > 0) {
-        const newGrossYield = (rent * 12 / newTotalPurchaseCost * 100).toFixed(1);
-        newForm = { ...newForm, grossYield: newGrossYield };
+    // 'price', 'initialCost', 'rent', 'grossYield'가 변경될 때 연동 계산
+    const isRelatedToGrossYield = (name.startsWith('initialCost') && !name.endsWith('Name')) || ['price', 'rent', 'grossYield'].includes(name);
+
+    if (isRelatedToGrossYield) {
+      const totalPurchaseCost = calculateTotalPurchaseCost(newForm);
+
+      if (name === 'rent' || name === 'price' || (name.startsWith('initialCost') && !name.endsWith('Name'))) {
+        const rent = parseFloat(newForm.rent) || 0;
+        if (totalPurchaseCost > 0) {
+          const newGrossYield = (rent * 12 / totalPurchaseCost * 100).toFixed(1);
+          newForm = { ...newForm, grossYield: newGrossYield };
+        } else {
+          newForm = { ...newForm, grossYield: '0.0' };
+        }
+      } else if (name === 'grossYield') {
+        const grossYield = parseFloat(value) || 0;
+        if (totalPurchaseCost > 0) {
+          const newRent = (totalPurchaseCost * grossYield / 100 / 12).toFixed(0);
+          newForm = { ...newForm, rent: newRent };
+        }
       }
-    } else if (name === 'rent') {
-      const rent = parseFloat(value) || 0;
-      const currentTotalPurchaseCost = (parseFloat(newForm.price) || 0) * 10000 + initialCostTotal;
-      if (currentTotalPurchaseCost > 0) {
-        const newGrossYield = (rent * 12 / currentTotalPurchaseCost * 100).toFixed(1);
-        newForm = { ...newForm, grossYield: newGrossYield };
-      } else {
-        newForm = { ...newForm, grossYield: '0.0' };
-      }
-    } else if (name === 'grossYield') {
-      const grossYield = parseFloat(value) || 0;
-      const currentTotalPurchaseCost = (parseFloat(newForm.price) || 0) * 10000 + initialCostTotal;
-      const newRent = (currentTotalPurchaseCost * grossYield / 100 / 12).toFixed(0);
-      newForm = { ...newForm, rent: newRent };
-    } else if (name === 'price') {
-      const price = parseFloat(value) || 0;
-      const newTotalPurchaseCost = price * 10000 + initialCostTotal;
-      const rent = parseFloat(newForm.rent) || 0;
-      if (rent > 0 && newTotalPurchaseCost > 0) {
-        const newGrossYield = (rent * 12 / newTotalPurchaseCost * 100).toFixed(1);
-        newForm = { ...newForm, grossYield: newGrossYield };
-      }
-    } else if (name === 'managementFeeRate') {
+    }
+
+    if (name === 'managementFeeRate') {
       // 관리비 비율이 변경되면 관리비 자동 계산
       const rate = parseFloat(value) || 0;
       const rent = parseFloat(newForm.rent) || 0;
@@ -352,23 +355,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
 
     // 제비용이 변경된 경우 표면이율 재계산
     if (fieldName.startsWith('initialCost') && !fieldName.endsWith('Name')) {
-      const newInitialCostTotal = [
-        parseFloat(newForm.initialCost1) || 0,
-        parseFloat(newForm.initialCost2) || 0,
-        parseFloat(newForm.initialCost3) || 0,
-        parseFloat(newForm.initialCost4) || 0,
-        parseFloat(newForm.initialCost5) || 0
-      ].reduce((sum, cost) => sum + cost, 0);
-
-      const newTotalPurchaseCost = (parseFloat(newForm.price) || 0) * 10000 + newInitialCostTotal;
-      const rent = parseFloat(newForm.rent) || 0;
-      if (rent > 0 && newTotalPurchaseCost > 0) {
-        const newGrossYield = (rent * 12 / newTotalPurchaseCost * 100).toFixed(1);
-        newForm = { ...newForm, grossYield: newGrossYield };
-      }
+      // Re-trigger calculation logic
+      const event = { target: { name: fieldName, value } } as React.ChangeEvent<HTMLInputElement>;
+      handleInputChange(event);
+    } else {
+      setForm({ ...form, [fieldName]: value });
     }
-
-    setForm(newForm);
   }
 
   // 편집 시작
@@ -421,16 +413,41 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
       return
     }
 
-    // 계산용 데이터 준비 (기존 expense 필드에 유지비 합계 사용, 대출 금액 자동 계산)
+    // 계산용 데이터 준비
     const calculationData = {
       ...form,
+      price: form.price || '0',
+      grossYield: form.grossYield || '0',
+      buildingArea: form.buildingArea || '0',
+      ownCapital: form.ownCapital || '0',
+      buildingPrice: form.buildingPrice || '0',
+      occupancyRate: form.occupancyRate || '0',
+      rate: form.rate || '0',
+      term: form.term || '0',
+      rent: form.rent || '0',
+      propertyTax: form.propertyTax || '0',
+      managementFeeRate: form.managementFeeRate || '0',
+      managementFee: form.managementFee || '0',
+      repairCostRate: form.repairCostRate || '0',
+      repairCost: form.repairCost || '0',
+      otherExpensesRate: form.otherExpensesRate || '0',
+      otherExpenses: form.otherExpenses || '0',
+      initialCost1: form.initialCost1 || '0',
+      initialCost2: form.initialCost2 || '0',
+      initialCost3: form.initialCost3 || '0',
+      initialCost4: form.initialCost4 || '0',
+      initialCost5: form.initialCost5 || '0',
+      maintenance1: form.maintenance1 || '0',
+      maintenance2: form.maintenance2 || '0',
+      maintenance3: form.maintenance3 || '0',
+      maintenance4: form.maintenance4 || '0',
+      maintenance5: form.maintenance5 || '0',
       loan: (loanAmount / 10000).toString(), // 万円 단위로 변환
       expense: maintenanceTotal.toString(),
-      // 월세 조정 관련 데이터 추가 - 백엔드에서 연간 수익 계산 시 사용
-      rentFixedPeriod: form.rentFixedPeriod,
-      rentAdjustmentInterval: form.rentAdjustmentInterval,
-      rentAdjustmentRate: form.rentAdjustmentRate || '0'
-    }
+      rentFixedPeriod: form.rentFixedPeriod || '1',
+      rentAdjustmentInterval: form.rentAdjustmentInterval || '1',
+      rentAdjustmentRate: form.rentAdjustmentRate || '0',
+    };
 
     onCalculate(calculationData)
   }
@@ -648,7 +665,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">건물가격 ÷ 내용연수</span>
               <span className="text-lg font-bold text-blue-600">
-                {depreciationExpense.toLocaleString()} 円/년
+                {(depreciationExpense / 10000).toFixed(1)} 万円/년
               </span>
             </div>
           </div>
@@ -743,7 +760,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">총매입비용 - 자기자금</span>
               <span className="text-lg font-bold text-green-600">
-                {loanAmount.toLocaleString()} 円
+                {(loanAmount / 10000).toFixed(1)} 万円
               </span>
             </div>
           </div>
@@ -773,10 +790,28 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             />
             <span className="absolute right-3 top-9 text-gray-500">円</span>
           </div>
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">연간 수익</label>
+            <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
+              <span className="text-sm text-gray-600">월세수익 x 12</span>
+              <span className="text-lg font-bold text-yellow-600">
+                {annualIncome.toLocaleString()} 円
+              </span>
+            </div>
+          </div>
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">입주율 반영 수익</label>
+            <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
+              <span className="text-sm text-gray-600">연간수익 x 입주율</span>
+              <span className="text-lg font-bold text-yellow-600">
+                {occupancyAdjustedIncome.toLocaleString()} 円
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* 월세 조정 관련 필드들 - 내부 계산용으로만 사용 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div className="relative">
             <label
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"

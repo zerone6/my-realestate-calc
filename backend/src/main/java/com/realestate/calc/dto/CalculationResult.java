@@ -11,11 +11,12 @@ public class CalculationResult {
     private String grossYield;
     private List<RepaymentSchedule> schedule;
 
-    public CalculationResult() {}
+    public CalculationResult() {
+    }
 
-    public CalculationResult(String monthlyPayment, String yearlyIncome, String yearlyCost, 
-                           String yearlyProfit, String yieldPercent, String grossYield, 
-                           List<RepaymentSchedule> schedule) {
+    public CalculationResult(String monthlyPayment, String yearlyIncome, String yearlyCost,
+            String yearlyProfit, String yieldPercent, String grossYield,
+            List<RepaymentSchedule> schedule) {
         this.monthlyPayment = monthlyPayment;
         this.yearlyIncome = yearlyIncome;
         this.yearlyCost = yearlyCost;
@@ -87,18 +88,23 @@ public class CalculationResult {
         private String date;
         private int payment;
         private int principal;
-        private int interest;
-        private int balance;
+        private double interest;
+        private double balance;
+        private double estimatedMonthlyRent;
+        private double cashFlow;
 
-        public RepaymentSchedule() {}
+        public RepaymentSchedule() {
+        }
 
-        public RepaymentSchedule(int no, String date, int payment, int principal, int interest, int balance) {
+        public RepaymentSchedule(int no, String date, int payment, int principal, double interest, double balance,
+                double estimatedMonthlyRent) {
             this.no = no;
             this.date = date;
             this.payment = payment;
             this.principal = principal;
             this.interest = interest;
             this.balance = balance;
+            this.estimatedMonthlyRent = estimatedMonthlyRent;
         }
 
         // Getters and Setters
@@ -134,20 +140,36 @@ public class CalculationResult {
             this.principal = principal;
         }
 
-        public int getInterest() {
+        public double getInterest() {
             return interest;
         }
 
-        public void setInterest(int interest) {
+        public void setInterest(double interest) {
             this.interest = interest;
         }
 
-        public int getBalance() {
+        public double getBalance() {
             return balance;
         }
 
-        public void setBalance(int balance) {
+        public void setBalance(double balance) {
             this.balance = balance;
         }
+
+        public double getEstimatedMonthlyRent() {
+            return estimatedMonthlyRent;
+        }
+
+        public void setEstimatedMonthlyRent(double estimatedMonthlyRent) {
+            this.estimatedMonthlyRent = estimatedMonthlyRent;
+        }
+
+        public double getCashFlow() {
+            return cashFlow;
+        }
+
+        public void setCashFlow(double cashFlow) {
+            this.cashFlow = cashFlow;
+        }
     }
-} 
+}
