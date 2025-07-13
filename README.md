@@ -28,12 +28,14 @@ my-realestate-calc/
 ## 기술 스택
 
 ### Frontend
+
 - React 18
 - TypeScript
 - Vite
 - Tailwind CSS
 
 ### Backend
+
 - Spring Boot 3.2.0
 - Java 17
 - Maven
@@ -62,24 +64,36 @@ VS Code에서 다음 확장 프로그램들을 설치하세요:
 ### 방법 1: VS Code 디버깅 (권장)
 
 1. **VS Code에서 프로젝트 열기**
+
    ```bash
    code .
    ```
 
 2. **백엔드 서버 디버깅 시작**
+
    - `F5` 키를 누르거나
    - `Ctrl+Shift+D` (또는 `Cmd+Shift+D`)로 디버깅 패널 열기
    - "Debug Spring Boot Application" 선택 후 실행
 
 3. **프론트엔드 개발 서버 시작**
+
    - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
    - "Tasks: Run Task" 선택
    - "Start Frontend Dev Server" 선택
 
-4. **또는 전체 스택 동시 시작**
+4. **또는 전체 스택 동시 시작/중지 (디버깅 없이 실행)**
+
    - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
    - "Tasks: Run Task" 선택
-   - "Start Full Stack Development" 선택
+   - "Start Full Stack Development" 선택 → 백엔드와 프론트엔드 서버가 동시에 실행됩니다.
+   - 서버를 모두 중단하려면 같은 방법으로 "Stop Full Stack Development"를 선택하세요.
+
+   > **참고:**
+   >
+   > - "Start Full Stack Development"는 디버깅 없이 두 서버를 동시에 실행합니다.
+   > - "Stop Full Stack Development"는 두 서버를 모두 종료합니다.
+   > - 디버깅 모드에서 중지(Stop) 버튼을 누르면 백엔드만 중단되며, 프론트엔드는 별도로 중단해야 합니다.
+   > - 디버깅 없이 실행할 때는 반드시 "Stop Full Stack Development"로 서버를 종료하세요.
 
 ### 방법 2: 터미널에서 실행
 
@@ -105,9 +119,11 @@ npm run dev
 ## API 엔드포인트
 
 ### POST /api/calculation/calculate
+
 부동산 수익을 계산합니다.
 
 **요청 예시:**
+
 ```json
 {
   "name": "테스트 아파트",
@@ -122,6 +138,7 @@ npm run dev
 ```
 
 **응답 예시:**
+
 ```json
 {
   "monthlyPayment": "142998",
@@ -135,11 +152,13 @@ npm run dev
 ```
 
 ### GET /api/calculation/health
+
 서버 상태를 확인합니다.
 
 ## 디버깅 팁
 
 ### 백엔드 디버깅
+
 - 브레이크포인트를 설정하려면 Java 파일의 라인 번호 옆을 클릭
 - `F5`로 디버깅 시작
 - `F10`으로 한 줄씩 실행
@@ -147,6 +166,7 @@ npm run dev
 - `Shift+F11`로 함수에서 나가기
 
 ### 프론트엔드 디버깅
+
 - 브라우저 개발자 도구 사용
 - React Developer Tools 확장 프로그램 설치 권장
 - VS Code에서 TypeScript 디버깅 가능
@@ -154,26 +174,31 @@ npm run dev
 ## 문제 해결
 
 ### 포트 충돌
+
 - 포트 8080이 사용 중인 경우: `lsof -ti:8080 | xargs kill -9`
 - 포트 5173이 사용 중인 경우: Vite가 자동으로 다른 포트 사용
 
 ### Java 관련 문제
+
 - Java 버전 확인: `java -version`
 - JAVA_HOME 설정 확인: `echo $JAVA_HOME`
 - Maven 캐시 정리: `mvn clean`
 
 ### 프론트엔드 관련 문제
+
 - node_modules 재설치: `rm -rf node_modules && npm install`
 - Vite 캐시 정리: `npm run dev -- --force`
 
 ## 주요 기능
 
 1. **부동산 수익 계산**
+
    - 월 상환금 계산
    - 연간 수익/지출 계산
    - 수익률 계산 (GRY, NRY)
 
 2. **상환 일정표**
+
    - 월별 상환 일정 생성
    - 원금/이자 분리 표시
    - 대출 잔액 추적
@@ -185,4 +210,4 @@ npm run dev
 
 ## 라이센스
 
-이 프로젝트는 MIT 라이센스 하에 배포됩니다. 
+이 프로젝트는 MIT 라이센스 하에 배포됩니다.
