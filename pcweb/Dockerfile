@@ -25,12 +25,12 @@ RUN apk add --no-cache bind-tools curl iputils && \
 COPY shared/package*.json ./shared/
 COPY shared/ ./shared/
 WORKDIR /workspace/shared
-RUN npm ci && npm run build
+RUN npm install && npm run build
 
 # pcweb 소스 복사 및 빌드
 WORKDIR /workspace/pcweb
 COPY pcweb/package*.json ./
-RUN npm ci
+RUN npm install
 COPY pcweb/ ./
 RUN npm run build
 
