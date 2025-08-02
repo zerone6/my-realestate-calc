@@ -38,22 +38,11 @@ jobs:
           script: |
             cd ~/app
             
-            # DNS 설정 강화
-            echo "=== DNS Configuration ==="
-            echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-            echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
-            echo "nameserver 208.67.222.222" | sudo tee -a /etc/resolv.conf
-            
-            # 네트워크 연결 테스트 (더 강화된 테스트)
+            # 네트워크 연결 테스트
             echo "=== Network Test ==="
             ping -c 3 8.8.8.8 || echo "Google DNS ping failed"
             dig @8.8.8.8 registry.npmjs.org || echo "NPM registry DNS lookup failed"
             dig @8.8.8.8 repo.maven.apache.org || echo "Maven repo DNS lookup failed"
-            curl -I --connect-timeout 10 --max-time 30 https://registry.npmjs.org/ || echo "NPM registry connection failed"
-            curl -I --connect-timeout 10 --max-time 30 https://repo.maven.apache.org/maven2/ || echo "Maven repo connection failed"
-            
-            # Docker 데몬 상태 확인
-            sudo systemctl status docker || echo "Docker status check failed"
             
             # 네트워크 생성 (이미 존재하면 무시)
             docker network create app-network || true
@@ -68,25 +57,17 @@ jobs:
             export DOCKER_BUILDKIT=1
             export BUILDKIT_PROGRESS=plain
             
-            # 홈서버 환경을 위한 네트워크 설정
-            echo "=== Docker Network Configuration ==="
-            docker network ls
-            
-            # Backend 빌드 및 실행 (오프라인 모드 및 캐시 활용)
+            # Backend 빌드 및 실행
             echo "=== Building Backend ==="
             DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
               --add-host=repo.maven.apache.org:151.101.64.215 \
               --add-host=repo1.maven.org:151.101.64.215 \
-              --add-host=registry-1.docker.io:52.7.56.154 \
-              --dns=8.8.8.8 \
-              --dns=1.1.1.1 \
               -t realestate-backend ./backend || {
-                echo "Backend build failed, trying with fallback settings..."
+                echo "Backend build failed, retrying..."
                 sleep 30
-                # 더 보수적인 설정으로 재시도
-                DOCKER_BUILDKIT=1 docker build --network=none \
+                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
                   --add-host=repo.maven.apache.org:151.101.64.215 \
-                  --add-host=repo1.maven.org:52.7.56.154 \
+                  --add-host=repo1.maven.org:151.101.64.215 \
                   -t realestate-backend ./backend
               }
             docker compose up -d backend
@@ -102,18 +83,15 @@ jobs:
               sleep 2
             done
             
-            # Frontend 빌드 및 실행 (안정성 우선 설정)
+            # Frontend 빌드 및 실행
             echo "=== Building Frontend ==="
             DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
               --add-host=registry.npmjs.org:104.16.30.34 \
-              --add-host=registry-1.docker.io:52.7.56.154 \
-              --dns=8.8.8.8 \
-              --dns=1.1.1.1 \
+              --add-host=dl-cdn.alpinelinux.org:151.101.2.133 \
               -t realestate-pcweb -f ./pcweb/Dockerfile . || {
-                echo "Frontend build failed, trying with fallback settings..."
+                echo "Frontend build failed, retrying..."
                 sleep 30
-                # Alpine 패키지 서버를 위한 fallback
-                DOCKER_BUILDKIT=1 docker build --network=none \
+                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
                   --add-host=registry.npmjs.org:104.16.30.34 \
                   --add-host=dl-cdn.alpinelinux.org:151.101.2.133 \
                   -t realestate-pcweb -f ./pcweb/Dockerfile .
