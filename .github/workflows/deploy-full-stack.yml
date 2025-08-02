@@ -38,6 +38,16 @@ jobs:
           script: |
             cd ~/app
             
+            # DNS 설정 개선
+            echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+            echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+            
+            # 네트워크 연결 테스트
+            echo "=== Network Test ==="
+            ping -c 3 8.8.8.8 || echo "Google DNS ping failed"
+            nslookup registry.npmjs.org || echo "NPM registry DNS lookup failed"
+            nslookup repo.maven.apache.org || echo "Maven repo DNS lookup failed"
+            
             # 네트워크 생성 (이미 존재하면 무시)
             docker network create app-network || true
             
@@ -46,6 +56,10 @@ jobs:
             
             # 오래된 이미지 정리
             docker image prune -f || true
+            
+            # Docker 빌드 시 DNS 설정 적용
+            export DOCKER_BUILDKIT=1
+            export BUILDKIT_PROGRESS=plain
             
             # Backend 빌드 및 실행
             echo "=== Building Backend ==="

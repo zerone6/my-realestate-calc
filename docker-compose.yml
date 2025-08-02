@@ -4,12 +4,20 @@ networks:
 
 services:
   backend:
-    build: ./backend
-    container_name: backend
+    build: 
+      context: ./backend
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: realestate-backend
     ports:
       - "8080:8080"
     networks:
       - app-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/calculation/health"]
@@ -20,16 +28,19 @@ services:
   pcweb:
     build: 
       context: .
-      dockerfile: pcweb/Dockerfile
-    container_name: pcweb
+      dockerfile: ./pcweb/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: realestate-pcweb
     ports:
       - "3001:80"
     networks:
       - app-network
-    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
 
   nginx:
     image: nginx:1.25-alpine
