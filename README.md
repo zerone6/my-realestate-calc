@@ -361,3 +361,146 @@ pcweb/package.json: react-router-dom 추가
 2. **포트폴리오**: 여러 부동산 관리, 수익 통계
 
 현재 구조는 이러한 기능들을 쉽게 추가할 수 있도록 확장 가능하게 설계되었습니다.
+
+---
+
+## 🚀 배포 가이드
+
+### 자동 배포 (GitHub Actions)
+
+이 프로젝트는 GitHub Actions를 통한 자동 배포를 지원합니다.
+
+#### 배포 워크플로우
+
+1. **deploy-backend.yml**: `backend/` 경로 변경 시 백엔드만 배포
+2. **deploy-frontend.yml**: `pcweb/` 또는 `shared/` 경로 변경 시 프론트엔드 배포  
+3. **deploy-nginx.yml**: `nginx/` 경로 변경 시 Nginx 설정 배포
+4. **deploy-full-stack.yml**: `main` 브랜치 푸시 시 전체 스택 배포
+
+#### 배포 서버 설정
+
+**필수 사전 요구사항:**
+- Ubuntu 서버 (Docker 및 Docker Compose 설치)
+- SSH 키 기반 인증 설정
+- GitHub Secrets에 `DEPLOY_KEY` 등록
+
+**서버 구조:**
+```
+~/app/
+├── backend/           # Spring Boot 백엔드
+├── pcweb/            # React 프론트엔드  
+├── shared/           # 공통 모듈
+├── nginx/            # Nginx 설정
+└── docker-compose.yml # 전체 스택 설정
+```
+
+#### 배포 프로세스
+
+1. **코드 변경 후 push**
+   ```bash
+   git add .
+   git commit -m "Update feature"
+   git push origin main
+   ```
+
+2. **GitHub Actions 자동 실행**
+   - 변경된 경로에 따라 해당 워크플로우 실행
+   - SCP로 파일 전송
+   - Docker 컨테이너 재빌드 및 재시작
+
+3. **배포 확인**
+   - 웹사이트: `http://mirainest.asuscomm.com`
+   - API: `http://mirainest.asuscomm.com/api`
+
+### 수동 배포
+
+서버에 직접 접속하여 배포할 경우:
+
+```bash
+# 서버 접속
+ssh zerone6@mirainest.asuscomm.com
+
+# 앱 디렉토리로 이동
+cd ~/app
+
+# 전체 스택 재배포
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+
+# 개별 서비스 재배포 (예: 프론트엔드만)
+cd ~/app/pcweb
+docker compose down
+docker compose build --no-cache  
+docker compose up -d
+```
+
+### 환경 설정
+
+#### 프로덕션 환경 변수
+
+**pcweb/.env.production:**
+```env
+NODE_ENV=production
+VITE_API_BASE_URL=/api
+VITE_APP_TITLE=부동산 정보 관리
+```
+
+#### Nginx 설정
+
+- **루트 경로** (`/`): React 앱 (랜딩 페이지 + 계산기)
+- **API 경로** (`/api`): Spring Boot 백엔드
+- **React Router 지원**: SPA 라우팅을 위한 fallback 설정
+
+#### Docker 네트워크
+
+모든 서비스는 `app-network`를 통해 통신:
+- `backend:8080` ← Spring Boot 
+- `pcweb:80` ← React + Nginx
+- `nginx:80` ← 리버스 프록시
+
+### 트러블슈팅
+
+#### 배포 실패 시 확인사항
+
+1. **GitHub Actions 로그 확인**
+   - Repository → Actions 탭에서 실행 결과 확인
+
+2. **서버 로그 확인**
+   ```bash
+   # 전체 컨테이너 상태
+   docker compose ps
+   
+   # 특정 서비스 로그
+   docker compose logs backend
+   docker compose logs pcweb  
+   docker compose logs nginx
+   ```
+
+3. **네트워크 연결 확인**
+   ```bash
+   # 컨테이너 간 통신 테스트
+   docker exec nginx ping backend
+   docker exec nginx ping pcweb
+   ```
+
+4. **포트 충돌 확인**
+   ```bash
+   # 사용 중인 포트 확인
+   netstat -tulpn | grep :80
+   netstat -tulpn | grep :8080
+   ```
+
+#### 일반적인 문제 해결
+
+**빌드 실패:**
+- Docker 이미지 캐시 정리: `docker system prune -f`
+- 개별 이미지 재빌드: `docker compose build --no-cache [service]`
+
+**Nginx 설정 오류:**
+- 설정 파일 구문 확인: `docker exec nginx nginx -t`
+- 로그 확인: `docker compose logs nginx`
+
+**API 연결 실패:**
+- 백엔드 헬스체크: `curl http://localhost:8080/api/calculation/health`
+- 네트워크 설정 확인: `docker network ls`

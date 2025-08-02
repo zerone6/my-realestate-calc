@@ -11,6 +11,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      
+      - name: Copy nginx files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: mirainest.asuscomm.com
+          username: zerone6
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "nginx/"
+          target: "~/app/"
+          overwrite: true
+      
       - name: Deploy nginx
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -20,5 +31,5 @@ jobs:
           script: |
             cd ~/app/nginx
             docker compose down
-            docker compose build
+            docker compose build --no-cache
             docker compose up -d
