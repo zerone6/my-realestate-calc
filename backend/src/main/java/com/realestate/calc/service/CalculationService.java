@@ -13,7 +13,7 @@ import java.util.List;
 public class CalculationService {
 
         public CalculationResult calculate(CalculationRequest request) {
-                // 디버깅을 위한 로그 추가
+                // 디버깅을 위한 로그 추가 ㅅㄷㄴㅅ
                 System.out.println("DEBUG - ALL REQUEST VALUES:");
                 System.out.println("  price: " + request.getPrice());
                 System.out.println("  totalPurchaseCost: " + request.getTotalPurchaseCost());
@@ -23,7 +23,7 @@ public class CalculationService {
                 System.out.println("  rent: " + request.getRent());
                 System.out.println("  expense: " + request.getExpense());
                 System.out.println("  occupancyRate: " + request.getOccupancyRate());
-                
+
                 // 클라이언트에서 서버로 이동한 계산 로직
                 double totalPurchaseCost = request.getTotalPurchaseCost() * 10000; // 만원을 원으로 변환
                 double loan = request.getLoan() * 10000;
