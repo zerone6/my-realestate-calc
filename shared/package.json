@@ -1,0 +1,22 @@
+{
+  "name": "@realestate-calc/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities and types for real estate calculation application",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "exports": {
+    "./types": "./types/RealEstateForm.ts",
+    "./utils/rentCalculation": "./utils/rentCalculation.ts",
+    "./utils/validation": "./utils/validation.ts",
+    "./utils/formUtils": "./utils/formUtils.ts",
+    "./data/fieldDescriptions": "./data/fieldDescriptions.ts",
+    "./api/realEstateApi": "./api/realEstateApi.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

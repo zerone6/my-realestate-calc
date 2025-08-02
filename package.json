@@ -1,4 +1,17 @@
 {
+  "name": "my-realestate-calc",
+  "version": "1.0.0",
+  "description": "Real estate calculation application with shared utilities",
+  "workspaces": [
+    "shared",
+    "pcweb"
+  ],
+  "scripts": {
+    "dev:pcweb": "cd pcweb && npm run dev",
+    "build:pcweb": "cd pcweb && npm run build",
+    "dev:shared": "cd shared && npm run type-check",
+    "build:shared": "cd shared && npm run build"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.10",
     "@types/node": "^24.1.0",

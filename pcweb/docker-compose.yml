@@ -1,0 +1,8 @@
+version: "3"
+services:
+  pcweb:
+    build: .
+    container_name: pcweb
+    ports:
+      - "3001:80"
+    restart: always
