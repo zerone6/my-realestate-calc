@@ -38,11 +38,22 @@ jobs:
           script: |
             cd ~/app
             
-            # 네트워크 연결 테스트 (sudo 없이)
+            # DNS 설정 강화
+            echo "=== DNS Configuration ==="
+            echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+            echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
+            echo "nameserver 208.67.222.222" | sudo tee -a /etc/resolv.conf
+            
+            # 네트워크 연결 테스트 (더 강화된 테스트)
             echo "=== Network Test ==="
             ping -c 3 8.8.8.8 || echo "Google DNS ping failed"
-            nslookup registry.npmjs.org || echo "NPM registry DNS lookup failed"
-            nslookup repo.maven.apache.org || echo "Maven repo DNS lookup failed"
+            dig @8.8.8.8 registry.npmjs.org || echo "NPM registry DNS lookup failed"
+            dig @8.8.8.8 repo.maven.apache.org || echo "Maven repo DNS lookup failed"
+            curl -I --connect-timeout 10 --max-time 30 https://registry.npmjs.org/ || echo "NPM registry connection failed"
+            curl -I --connect-timeout 10 --max-time 30 https://repo.maven.apache.org/maven2/ || echo "Maven repo connection failed"
+            
+            # Docker 데몬 상태 확인
+            sudo systemctl status docker || echo "Docker status check failed"
             
             # 네트워크 생성 (이미 존재하면 무시)
             docker network create app-network || true
@@ -61,12 +72,21 @@ jobs:
             echo "=== Docker Network Configuration ==="
             docker network ls
             
-            # Backend 빌드 및 실행 (DNS 설정을 빌드 시에 적용)
+            # Backend 빌드 및 실행 (더 강화된 DNS 설정)
             echo "=== Building Backend ==="
-            docker build --network=host --no-cache \
+            DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
               --add-host=repo.maven.apache.org:151.101.64.215 \
+              --add-host=repo1.maven.org:151.101.64.215 \
               --add-host=registry.npmjs.org:104.16.30.34 \
-              -t realestate-backend ./backend
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t realestate-backend ./backend || {
+                echo "Backend build failed, retrying..."
+                sleep 30
+                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
+                  --add-host=repo.maven.apache.org:151.101.64.215 \
+                  --add-host=repo1.maven.org:151.101.64.215 \
+                  -t realestate-backend ./backend
+              }
             docker compose up -d backend
             
             # Backend 헬스체크
@@ -80,11 +100,21 @@ jobs:
               sleep 2
             done
             
-            # Frontend 빌드 및 실행 (환경변수로 설정 간소화)
+            # Frontend 빌드 및 실행 (더 강화된 재시도 메커니즘)
             echo "=== Building Frontend ==="
-            docker build --network=host --no-cache \
+            DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
               --add-host=registry.npmjs.org:104.16.30.34 \
-              -t realestate-pcweb -f ./pcweb/Dockerfile .
+              --add-host=registry.yarnpkg.com:104.16.30.34 \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t realestate-pcweb -f ./pcweb/Dockerfile . || {
+                echo "Frontend build failed, retrying..."
+                sleep 30
+                # 캐시 클리어 후 재시도
+                docker system prune -f
+                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
+                  --add-host=registry.npmjs.org:104.16.30.34 \
+                  -t realestate-pcweb -f ./pcweb/Dockerfile .
+              }
             docker compose up -d pcweb
             
             # Frontend 대기
