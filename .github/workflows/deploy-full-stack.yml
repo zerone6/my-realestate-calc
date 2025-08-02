@@ -61,9 +61,13 @@ jobs:
             export DOCKER_BUILDKIT=1
             export BUILDKIT_PROGRESS=plain
             
-            # Backend 빌드 및 실행
+            # 홈서버 환경을 위한 네트워크 설정
+            echo "=== Docker Network Configuration ==="
+            docker network ls
+            
+            # Backend 빌드 및 실행 (호스트 네트워크 모드로 빌드)
             echo "=== Building Backend ==="
-            docker compose build --no-cache backend
+            docker build --network=host --no-cache -t realestate-backend ./backend
             docker compose up -d backend
             
             # Backend 헬스체크
@@ -77,9 +81,9 @@ jobs:
               sleep 2
             done
             
-            # Frontend 빌드 및 실행
+            # Frontend 빌드 및 실행 (호스트 네트워크 모드로 빌드)
             echo "=== Building Frontend ==="
-            docker compose build --no-cache pcweb
+            docker build --network=host --no-cache -t realestate-pcweb -f ./pcweb/Dockerfile .
             docker compose up -d pcweb
             
             # Frontend 대기
