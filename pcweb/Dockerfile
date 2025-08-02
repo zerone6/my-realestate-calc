@@ -1,19 +1,20 @@
 # React 빌드 단계
-FROM node:20-alpine as build
+FROM node:20-alpine AS build
 
 # 작업 디렉토리 설정
 WORKDIR /workspace
 
 # shared 모듈 복사 및 설치
-COPY shared ./shared
+COPY shared/package*.json ./shared/
+COPY shared/ ./shared/
 WORKDIR /workspace/shared
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # pcweb 소스 복사 및 빌드
 WORKDIR /workspace/pcweb
 COPY pcweb/package*.json ./
-RUN npm install
-COPY pcweb .
+RUN npm ci
+COPY pcweb/ ./
 RUN npm run build
 
 # Nginx 단계
