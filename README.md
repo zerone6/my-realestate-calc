@@ -1,158 +1,140 @@
 # 부동산 수익 계산기
 
-부동산 투자 수익을 계산하는 웹 애플리케이션입니다. 재사용 가능한 공통 모듈과 UI가 분리된 아키텍처로 구성되어 있습니다.
+부동산 투자 수익을 계산하는 풀스택 웹 애플리케이션입니다. Spring Boot 백엔드와 React 프론트엔드로 구성되어 있으며, Docker Compose를 통해 배포됩니다.
 
 ## 프로젝트 구조
 
 ```
 my-realestate-calc/
-├── shared/            # 공통 유틸리티 및 타입 정의
-│   ├── api/          # API 클라이언트
-│   ├── types/        # TypeScript 타입 정의
-│   ├── utils/        # 유틸리티 함수들
-│   ├── data/         # 공통 데이터
-│   └── package.json
-├── pcweb/            # PC 웹 클라이언트 (React + TypeScript + Vite)
+├── backend/              # Spring Boot API 서버
+│   ├── src/main/java/com/realestate/calc/
+│   │   ├── controller/   # REST API 컨트롤러
+│   │   ├── service/      # 비즈니스 로직
+│   │   └── dto/          # 데이터 전송 객체
+│   ├── Dockerfile        # 백엔드 Docker 설정
+│   └── pom.xml           # Maven 설정
+├── pcweb/                # React 프론트엔드
 │   ├── src/
-│   │   ├── components/
+│   │   ├── components/   # React 컴포넌트
 │   │   ├── App.tsx
 │   │   └── main.tsx
+│   ├── Dockerfile        # 프론트엔드 Docker 설정
 │   └── package.json
-├── backend/          # Spring Boot 서버
-│   ├── src/main/java/com/realestate/calc/
-│   │   ├── controller/
-│   │   ├── service/
-│   │   └── dto/
-│   └── pom.xml
-├── .vscode/          # VS Code 설정
-│   ├── launch.json   # 디버깅 설정
-│   ├── tasks.json    # 태스크 설정
-│   └── settings.json # 프로젝트 설정
+├── shared/               # 공통 모듈 (TypeScript)
+│   ├── api/              # API 클라이언트
+│   ├── types/            # 타입 정의
+│   ├── utils/            # 유틸리티 함수
+│   └── data/             # 공통 데이터
+├── nginx/                # Nginx 설정
+├── docker-compose.yml    # Docker Compose 설정
+├── .github/workflows/    # GitHub Actions 배포 설정
+│   └── deploy.yml        # 자동 배포 워크플로우
 └── README.md
 ```
 
 ## 기술 스택
 
-### Shared (공통 모듈)
+### 백엔드
+- **Spring Boot 3.2.0** - REST API 서버
+- **Java 17** - 프로그래밍 언어
+- **Maven** - 빌드 도구
 
-- TypeScript
-- 순수 함수형 유틸리티
-- API 클라이언트
+### 프론트엔드
+- **React 18** - UI 라이브러리
+- **TypeScript** - 타입 안전성
+- **Vite** - 빌드 도구
+- **Tailwind CSS** - 스타일링
 
-### PCWeb (PC 웹 클라이언트)
+### 배포 및 인프라
+- **Docker & Docker Compose** - 컨테이너화
+- **Nginx** - 리버스 프록시 및 정적 파일 서빙
+- **GitHub Actions** - CI/CD 자동화
 
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
+## 로컬 개발 환경 설정
 
-### Backend
+### 1. 사전 요구사항
+- Java 17+
+- Node.js 18+
+- Maven 3.8+
 
-- Spring Boot 3.2.0
-- Java 17
-- Maven
+### 2. VS Code 확장 프로그램 (권장)
+- Extension Pack for Java
+- Spring Boot Dashboard
+- TypeScript and JavaScript Language Features
+- Tailwind CSS IntelliSense
 
-## 개발 환경 설정
+### 3. 실행 방법
 
-### 1. VS Code 확장 프로그램 설치
-
-VS Code에서 다음 확장 프로그램들을 설치하세요:
-
-- **Extension Pack for Java** (vscjava.vscode-java-pack)
-- **Spring Boot Dashboard** (vscjava.vscode-spring-boot-dashboard)
-- **Spring Initializr** (vscjava.vscode-spring-initializr)
-- **Maven for Java** (vscjava.vscode-maven)
-- **TypeScript and JavaScript Language Features** (ms-vscode.vscode-typescript-next)
-- **Tailwind CSS IntelliSense** (bradlc.vscode-tailwindcss)
-- **Prettier** (esbenp.prettier-vscode)
-
-### 2. Java 환경 설정
-
-- Java 17 이상이 설치되어 있어야 합니다
-- JAVA_HOME 환경변수가 설정되어 있어야 합니다
-
-## 실행 방법
-
-### 방법 1: VS Code 태스크 사용 (권장)
-
-1. **VS Code에서 프로젝트 열기**
-
-   ```bash
-   code .
-   ```
-
-2. **백엔드 서버 시작**
-
-   - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
-   - "Tasks: Run Task" 선택
-   - "Start Backend Server" 선택
-
-3. **PCWeb 클라이언트 시작**
-
-   - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
-   - "Tasks: Run Task" 선택
-   - "Start PCWeb Dev Server" 선택
-
-4. **또는 전체 스택 동시 시작**
-
-   - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
-   - "Tasks: Run Task" 선택
-   - "Start Full Stack Development" 선택
-
-5. **서버 중지**
-
-   - "Stop Full Stack Development" 선택하여 모든 서버 중지
-
-### 방법 2: 터미널에서 실행
-
-#### 1. 백엔드 서버 실행
-
+#### VS Code 태스크 사용 (권장)
 ```bash
-cd backend
-mvn spring-boot:run
+# 프로젝트 열기
+code .
+
+# Ctrl+Shift+P → "Tasks: Run Task" → "Start Backend Server"
+# Ctrl+Shift+P → "Tasks: Run Task" → "Start PCWeb Dev Server"
 ```
 
-백엔드 서버는 `http://localhost:8080`에서 실행됩니다.
-
-#### 2. PCWeb 클라이언트 실행
-
+#### 터미널에서 직접 실행
 ```bash
+# 백엔드 서버 (포트 8080)
+cd backend
+mvn spring-boot:run
+
+# 프론트엔드 서버 (포트 5173)
 cd pcweb
-npm install  # 최초 1회만
+npm install
 npm run dev
 ```
 
-PCWeb 클라이언트는 `http://localhost:5173`에서 실행됩니다.
+## 배포
 
-## 아키텍처 개요
+### GitHub Actions 자동 배포
 
-### Shared 모듈
+메인 브랜치에 푸시하면 자동으로 원격 서버에 배포됩니다.
 
-- **API 클라이언트**: 백엔드와의 통신 담당
-- **타입 정의**: TypeScript 인터페이스 및 타입
-- **유틸리티 함수**: 폼 검증, 데이터 변환, 월세 계산 등
-- **공통 데이터**: 필드 설명, 상수 등
+#### 배포 트리거
+- `backend/**`, `pcweb/**`, `shared/**`, `nginx/**`, `docker-compose.yml` 파일 변경 시
 
-### PCWeb 클라이언트
+#### 배포 과정
+1. **파일 복사**: 소스 코드를 원격 서버로 전송
+2. **Docker DNS 설정**: 네트워크 안정성을 위한 DNS 구성
+3. **컨테이너 재빌드**: Docker Compose를 통한 전체 스택 재구성
+4. **상태 확인**: 배포 완료 후 컨테이너 상태 검증
 
-- React 기반 웹 인터페이스
-- Shared 모듈을 사용하여 비즈니스 로직 재사용
-- Tailwind CSS를 이용한 반응형 디자인
+#### 배포 설정 파일
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy Application
 
-### 백엔드 서버
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', 'pcweb/**', 'shared/**', 'nginx/**', 'docker-compose.yml']
 
-- Spring Boot REST API
-- 계산 로직 처리
-- 상환 스케줄 생성
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+      - name: Copy application to server
+      - name: Deploy on remote server
+```
 
-## API 엔드포인트
+### 수동 배포 (Docker Compose)
+
+```bash
+# 서버에서 직접 실행
+cd ~/app
+docker compose down --remove-orphans
+docker compose up -d --build
+```
+
+## API 문서
 
 ### POST /api/calculation/calculate
-
-부동산 수익을 계산합니다.
+부동산 투자 수익률을 계산합니다.
 
 **요청 예시:**
-
 ```json
 {
   "name": "테스트 아파트",
@@ -171,7 +153,6 @@ PCWeb 클라이언트는 `http://localhost:5173`에서 실행됩니다.
 ```
 
 **응답 예시:**
-
 ```json
 {
   "monthlyPayment": "142998",
@@ -185,18 +166,24 @@ PCWeb 클라이언트는 `http://localhost:5173`에서 실행됩니다.
 ```
 
 ### GET /api/calculation/health
-
 서버 상태를 확인합니다.
 
-## 디버깅 팁
+## 아키텍처 특징
 
-### 백엔드 디버깅
+### 마이크로서비스 구조
+- **백엔드**: 비즈니스 로직 및 계산 처리
+- **프론트엔드**: 사용자 인터페이스
+- **공통 모듈**: 재사용 가능한 타입 및 유틸리티
 
-- 브레이크포인트를 설정하려면 Java 파일의 라인 번호 옆을 클릭
-- `F5`로 디버깅 시작
-- `F10`으로 한 줄씩 실행
-- `F11`로 함수 내부로 진입
-- `Shift+F11`로 함수에서 나가기
+### 컨테이너화
+- 각 서비스별 독립적인 Docker 이미지
+- Docker Compose를 통한 오케스트레이션
+- Nginx를 통한 라우팅 및 로드 밸런싱
+
+### CI/CD 파이프라인
+- GitHub Actions를 통한 자동화된 배포
+- 코드 변경 시 자동 빌드 및 배포
+- 배포 실패 시 자동 재시도 로직
 
 ### 프론트엔드 디버깅
 
