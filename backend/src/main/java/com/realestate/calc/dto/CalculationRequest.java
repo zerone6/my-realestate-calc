@@ -1,5 +1,6 @@
 package com.realestate.calc.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -33,6 +34,7 @@ public class CalculationRequest {
 
     private String startDate;
 
+    @JsonProperty("occupancyRate")
     private double occupancyRate;
     private int rentFixedPeriod;
     private int rentAdjustmentInterval;

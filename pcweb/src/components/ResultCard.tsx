@@ -23,15 +23,24 @@ export default function ResultCard({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
+  // 모바일에서 만원 단위로 표시하기 위한 헬퍼 함수
+  const formatCurrency = (value: string | number, isMobile: boolean = false) => {
+    const numValue = typeof value === 'string' ? parseInt(value) : value;
+    if (isMobile && numValue >= 10000) {
+      return `${Math.round(numValue / 10000).toLocaleString()} 万円`;
+    }
+    return `${Math.round(numValue).toLocaleString()} 円`;
+  };
+
   if (!schedule || schedule.length === 0) {
     return (
       <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-white p-4 lg:p-6 rounded-xl shadow-md space-y-2">
         <h2 className="text-base lg:text-lg font-bold mb-4">계산 결과 요약</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-4 text-sm lg:text-base">
-          <div>매월 상환금: <strong>{parseInt(monthlyPayment).toLocaleString()} 円</strong></div>
-          <div>연간 수입: <strong>{parseInt(yearlyIncome).toLocaleString()} 円</strong></div>
-          <div>연간 지출: <strong>{parseInt(yearlyCost).toLocaleString()} 円</strong></div>
-          <div>연간 순이익: <strong>{parseInt(yearlyProfit).toLocaleString()} 円</strong></div>
+          <div>매월 상환금: <strong className="lg:hidden">{formatCurrency(monthlyPayment, true)}</strong><strong className="hidden lg:inline">{formatCurrency(monthlyPayment)}</strong></div>
+          <div>연간 수입: <strong className="lg:hidden">{formatCurrency(yearlyIncome, true)}</strong><strong className="hidden lg:inline">{formatCurrency(yearlyIncome)}</strong></div>
+          <div>연간 지출: <strong className="lg:hidden">{formatCurrency(yearlyCost, true)}</strong><strong className="hidden lg:inline">{formatCurrency(yearlyCost)}</strong></div>
+          <div>연간 순이익: <strong className="lg:hidden">{formatCurrency(yearlyProfit, true)}</strong><strong className="hidden lg:inline">{formatCurrency(yearlyProfit)}</strong></div>
           <div>표면 수익률 (GRY): <strong>{grossYield} %</strong></div>
           <div>예상 수익률 (NRY): <strong>{yieldPercent} %</strong></div>
         </div>
@@ -61,10 +70,10 @@ export default function ResultCard({
     <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-white p-4 lg:p-6 rounded-xl shadow-md space-y-2">
       <h2 className="text-base lg:text-lg font-bold mb-4">계산 결과 요약</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-4 text-sm lg:text-base">
-        <div>매월 상환금: <strong>{parseInt(monthlyPayment).toLocaleString()} 円</strong></div>
-        <div>연간 수입: <strong>{parseInt(yearlyIncome).toLocaleString()} 円</strong></div>
-        <div>연간 지출: <strong>{parseInt(yearlyCost).toLocaleString()} 円</strong></div>
-        <div>연간 순이익: <strong>{parseInt(yearlyProfit).toLocaleString()} 円</strong></div>
+        <div>매월 상환금: <strong className="lg:hidden">{formatCurrency(monthlyPayment, true)}</strong><strong className="hidden lg:inline">{formatCurrency(monthlyPayment)}</strong></div>
+        <div>연간 수입: <strong className="lg:hidden">{formatCurrency(yearlyIncome, true)}</strong><strong className="hidden lg:inline">{formatCurrency(yearlyIncome)}</strong></div>
+        <div>연간 지출: <strong className="lg:hidden">{formatCurrency(yearlyCost, true)}</strong><strong className="hidden lg:inline">{formatCurrency(yearlyCost)}</strong></div>
+        <div>연간 순이익: <strong className="lg:hidden">{formatCurrency(yearlyProfit, true)}</strong><strong className="hidden lg:inline">{formatCurrency(yearlyProfit)}</strong></div>
         <div>표면 수익률 (GRY): <strong>{grossYield} %</strong></div>
         <div>예상 수익률 (NRY): <strong>{yieldPercent} %</strong></div>
       </div>
@@ -107,23 +116,56 @@ export default function ResultCard({
             <tbody className="bg-white divide-y divide-gray-200">
               <tr className="bg-gray-100 font-bold">
                 <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm" colSpan={2}>연간 합계</td>
-                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{Math.round(annualSummary.rent).toLocaleString()} 円</td>
-                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{Math.round(annualSummary.payment).toLocaleString()} 円</td>
-                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{Math.round(annualSummary.principal).toLocaleString()} 円</td>
-                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{Math.round(annualSummary.interest).toLocaleString()} 円</td>
-                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{Math.round(annualSummary.cashFlow).toLocaleString()} 円</td>
+                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                  <span className="lg:hidden">{formatCurrency(annualSummary.rent, true)}</span>
+                  <span className="hidden lg:inline">{formatCurrency(annualSummary.rent)}</span>
+                </td>
+                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                  <span className="lg:hidden">{formatCurrency(annualSummary.payment, true)}</span>
+                  <span className="hidden lg:inline">{formatCurrency(annualSummary.payment)}</span>
+                </td>
+                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                  <span className="lg:hidden">{formatCurrency(annualSummary.principal, true)}</span>
+                  <span className="hidden lg:inline">{formatCurrency(annualSummary.principal)}</span>
+                </td>
+                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                  <span className="lg:hidden">{formatCurrency(annualSummary.interest, true)}</span>
+                  <span className="hidden lg:inline">{formatCurrency(annualSummary.interest)}</span>
+                </td>
+                <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                  <span className="lg:hidden">{formatCurrency(annualSummary.cashFlow, true)}</span>
+                  <span className="hidden lg:inline">{formatCurrency(annualSummary.cashFlow)}</span>
+                </td>
                 <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm"></td>
               </tr>
               {currentSchedule.map((item) => (
                 <tr key={item.month}>
                   <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{item.month}</td>
                   <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{item.date}</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{Math.round(item.rent).toLocaleString()} 円</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{Math.round(item.payment).toLocaleString()} 円</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{Math.round(item.principal).toLocaleString()} 円</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{Math.round(item.interest).toLocaleString()} 円</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{Math.round(item.cashFlow || 0).toLocaleString()} 円</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{Math.round(item.remaining).toLocaleString()} 円</td>
+                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                    <span className="lg:hidden">{formatCurrency(item.rent, true)}</span>
+                    <span className="hidden lg:inline">{formatCurrency(item.rent)}</span>
+                  </td>
+                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                    <span className="lg:hidden">{formatCurrency(item.payment, true)}</span>
+                    <span className="hidden lg:inline">{formatCurrency(item.payment)}</span>
+                  </td>
+                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                    <span className="lg:hidden">{formatCurrency(item.principal, true)}</span>
+                    <span className="hidden lg:inline">{formatCurrency(item.principal)}</span>
+                  </td>
+                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                    <span className="lg:hidden">{formatCurrency(item.interest, true)}</span>
+                    <span className="hidden lg:inline">{formatCurrency(item.interest)}</span>
+                  </td>
+                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                    <span className="lg:hidden">{formatCurrency(item.cashFlow || 0, true)}</span>
+                    <span className="hidden lg:inline">{formatCurrency(item.cashFlow || 0)}</span>
+                  </td>
+                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                    <span className="lg:hidden">{formatCurrency(item.remaining, true)}</span>
+                    <span className="hidden lg:inline">{formatCurrency(item.remaining)}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>

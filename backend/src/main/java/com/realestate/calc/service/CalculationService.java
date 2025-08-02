@@ -13,6 +13,16 @@ import java.util.List;
 public class CalculationService {
 
         public CalculationResult calculate(CalculationRequest request) {
+                // 디버깅을 위한 로그 추가
+                System.out.println("DEBUG - ALL REQUEST VALUES:");
+                System.out.println("  price: " + request.getPrice());
+                System.out.println("  loan: " + request.getLoan());
+                System.out.println("  rate: " + request.getRate());
+                System.out.println("  term: " + request.getTerm());
+                System.out.println("  rent: " + request.getRent());
+                System.out.println("  expense: " + request.getExpense());
+                System.out.println("  occupancyRate: " + request.getOccupancyRate());
+                
                 // 클라이언트에서 서버로 이동한 계산 로직
                 double price = request.getPrice() * 10000;
                 double loan = request.getLoan() * 10000;
@@ -22,30 +32,29 @@ public class CalculationService {
                 // 월 상환금 계산
                 double monthlyPayment = i == 0 ? loan / n : loan * i / (1 - Math.pow(1 + i, -n));
 
-                // 연간 수익 계산 (입주율 반영)
+                // 연간 수익 계산 (입주율 반영) - 프론트엔드에서 이미 원 단위로 변환되어 옴
                 double yearlyIncome = request.getRent() * 12 * (request.getOccupancyRate() / 100.0);
 
                 // 연간 지출 계산 (이자 비용을 상환 스케줄에서 직접 계산하여 명확성 확보)
-                double annualMaintenanceCost = request.getExpense(); // 프론트엔드에서 계산된 연간 유지비 (円)
+                double annualMaintenanceCost = request.getExpense(); // 프론트엔드에서 이미 원 단위로 변환되어 옴
 
                 double monthlyInterestRate = request.getRate() / 100 / 12.0;
                 int termInMonths = request.getTerm() * 12;
 
                 double occupancyRate = request.getOccupancyRate() / 100.0;
-                double monthlyMaintenanceExpense = request.getExpense() / 12.0;
 
                 List<CalculationResult.RepaymentSchedule> repaymentSchedule = generateRepaymentSchedule(
                                 request.getTerm() * 12,
                                 loan,
                                 monthlyPayment,
                                 request.getRate() / 100.0,
-                                request.getRent(),
+                                request.getRent(), // 이미 원 단위
                                 request.getStartDate(),
                                 request.getRentFixedPeriod(),
                                 request.getRentAdjustmentInterval(),
                                 request.getRentAdjustmentRate(),
                                 request.getOccupancyRate(),
-                                request.getExpense());
+                                request.getExpense()); // 이미 원 단위
 
                 // 첫 12개월 동안의 이자 합계 계산
                 double yearlyInterestCost = repaymentSchedule.stream()
