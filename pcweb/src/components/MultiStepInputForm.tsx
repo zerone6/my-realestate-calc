@@ -14,8 +14,38 @@ interface FormProps {
 }
 
 export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defaultForm, onCalculateComplete }: Readonly<FormProps>) {
-  const [form, setForm] = useState<FormInputData>(createDefaultFormData())
-  const [currentStep, setCurrentStep] = useState(0)
+  const [form, setForm] = useState<FormInputData>(() => {
+    // localStorage에서 저장된 폼 데이터 복원 시도
+    try {
+      const savedForm = localStorage.getItem('realEstateForm')
+      if (savedForm) {
+        const parsedForm = JSON.parse(savedForm)
+        // 저장된 데이터가 유효한지 확인 (최소한 name 필드가 있는지)
+        if (parsedForm && typeof parsedForm === 'object' && 'name' in parsedForm) {
+          return parsedForm
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore form data from localStorage:', error)
+    }
+    // 복원 실패 시 기본값 사용
+    return createDefaultFormData()
+  })
+  const [currentStep, setCurrentStep] = useState(() => {
+    // localStorage에서 현재 스텝도 복원
+    try {
+      const savedStep = localStorage.getItem('realEstateFormStep')
+      if (savedStep) {
+        const step = parseInt(savedStep, 10)
+        if (step >= 0 && step <= 3) {
+          return step
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore step from localStorage:', error)
+    }
+    return 0
+  })
 
   const STRUCTURE_LIFESPANS: { [key: string]: number } = {
     'RC': 47,
@@ -70,9 +100,39 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
 
   useEffect(() => {
     if (defaultForm) {
+      // defaultForm이 전달된 경우 우선 적용하고 localStorage에도 저장
       setForm(defaultForm)
+      try {
+        localStorage.setItem('realEstateForm', JSON.stringify(defaultForm))
+      } catch (error) {
+        console.warn('Failed to save defaultForm to localStorage:', error)
+      }
     }
   }, [defaultForm])
+
+  // 기본값 로드 후 관리비/수선비 자동 계산 실행
+  useEffect(() => {
+    const rent = parseFloat(form.rent) || 0;
+    const managementFeeRate = parseFloat(form.managementFeeRate) || 0;
+    const maintenanceFeeRate = parseFloat(form.maintenanceFeeRate) || 0;
+    
+    // 월세가 있고 비율이 설정된 경우에만 초기 계산 (한 번만)
+    if (rent > 0 && form.managementFee === '0' && form.maintenanceFee === '0') {
+      let updatedForm = { ...form };
+      
+      if (managementFeeRate > 0) {
+        const managementFee = rent * (managementFeeRate / 100);
+        updatedForm.managementFee = managementFee.toFixed(1);
+      }
+      
+      if (maintenanceFeeRate > 0) {
+        const maintenanceFee = rent * (maintenanceFeeRate / 100);
+        updatedForm.maintenanceFee = maintenanceFee.toFixed(1);
+      }
+      
+      setForm(updatedForm);
+    }
+  }, [form.rent, form.managementFeeRate, form.maintenanceFeeRate, form.managementFee, form.maintenanceFee])
 
   useEffect(() => {
     const newMaxAge = STRUCTURE_LIFESPANS[form.structure];
@@ -85,6 +145,24 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
   }, [form.structure]);
 
   const handleInputChange = createInputChangeHandler(form, setForm);
+
+  // 폼 데이터가 변경될 때마다 localStorage에 저장
+  useEffect(() => {
+    try {
+      localStorage.setItem('realEstateForm', JSON.stringify(form))
+    } catch (error) {
+      console.warn('Failed to save form data to localStorage:', error)
+    }
+  }, [form])
+
+  // 현재 스텝이 변경될 때마다 localStorage에 저장
+  useEffect(() => {
+    try {
+      localStorage.setItem('realEstateFormStep', currentStep.toString())
+    } catch (error) {
+      console.warn('Failed to save step to localStorage:', error)
+    }
+  }, [currentStep])
 
   const handleLabelClick = (fieldName: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -99,6 +177,29 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
   const handleCalculateClick = () => {
     onCalculate(form)
     onCalculateComplete?.() // 계산 완료 콜백 호출
+  }
+
+  const handleSaveClick = () => {
+    if (form.name.trim() === '') {
+      alert('물건 이름을 입력해주세요.')
+      return
+    }
+    onSave(form)
+  }
+
+  const handleResetForm = () => {
+    if (confirm('모든 입력 내용을 초기화하시겠습니까?')) {
+      const defaultData = createDefaultFormData()
+      setForm(defaultData)
+      setCurrentStep(0)
+      // localStorage도 초기화
+      try {
+        localStorage.removeItem('realEstateForm')
+        localStorage.removeItem('realEstateFormStep')
+      } catch (error) {
+        console.warn('Failed to clear localStorage:', error)
+      }
+    }
   }
 
   const nextStep = () => {
@@ -880,10 +981,16 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
               계산하기
             </button>
             <button
-              onClick={() => onSave(form)}
+              onClick={handleSaveClick}
               className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
             >
               저장
+            </button>
+            <button
+              onClick={handleResetForm}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            >
+              초기화
             </button>
             {form.name && (
               <button
