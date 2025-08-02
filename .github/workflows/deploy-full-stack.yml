@@ -47,15 +47,12 @@ jobs:
             # 오래된 이미지 정리
             docker image prune -f || true
             
-            # 새로운 빌드 및 실행
-            docker compose build --no-cache
-            docker compose up -d
+            # Backend 빌드 및 실행
+            echo "=== Building Backend ==="
+            docker compose build --no-cache backend
+            docker compose up -d backend
             
-            # 컨테이너 상태 확인
-            sleep 15
-            docker compose ps
-            
-            # 헬스체크
+            # Backend 헬스체크
             echo "=== Backend Health Check ==="
             for i in {1..30}; do
               if curl -f http://localhost:8080/api/calculation/health 2>/dev/null; then
@@ -66,13 +63,37 @@ jobs:
               sleep 2
             done
             
+            # Frontend 빌드 및 실행
+            echo "=== Building Frontend ==="
+            docker compose build --no-cache pcweb
+            docker compose up -d pcweb
+            
+            # Frontend 대기
+            sleep 10
+            
+            # Nginx 실행
+            echo "=== Starting Nginx ==="
+            docker compose up -d nginx
+            
+            # 최종 상태 확인
+            sleep 5
+            echo "=== Container Status ==="
+            docker compose ps
+            
             echo "=== Frontend Check ==="
             if curl -f http://localhost:3001 2>/dev/null; then
               echo "Frontend is accessible"
             else
               echo "Frontend check failed"
+              echo "Frontend logs:"
+              docker compose logs pcweb --tail=10
             fi
             
-            # 로그 확인 (에러가 있다면)
-            echo "=== Container Logs ==="
-            docker compose logs --tail=20
+            echo "=== Nginx Check ==="
+            if curl -f http://localhost/ 2>/dev/null; then
+              echo "Nginx is accessible"
+            else
+              echo "Nginx check failed"
+              echo "Nginx logs:"
+              docker compose logs nginx --tail=10
+            fi
