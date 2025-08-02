@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import InputForm from './components/InputForm'
+import MultiStepInputForm from './components/MultiStepInputForm'
 import ResultCard from './components/ResultCard'
 import { CalculationResult, FormInputData } from '../../shared/types/RealEstateForm'
 import { calculateRealEstate } from '../../shared/api/realEstateApi'
@@ -7,11 +7,11 @@ import { convertFormToRequest } from '../../shared/utils/formUtils'
 
 function App() {
   const [result, setResult] = useState<CalculationResult | null>(null)
-  const [page, setPage] = useState(0)
   const [savedItems, setSavedItems] = useState<{ name: string; form: FormInputData }[]>([])
   const [activeForm, setActiveForm] = useState<FormInputData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showResult, setShowResult] = useState(false) // 결과 표시 상태
 
   useEffect(() => {
     const saved = localStorage.getItem('realestate-items')
@@ -32,13 +32,23 @@ function App() {
       const request = convertFormToRequest(form)
       const calculationResult = await calculateRealEstate(request)
       setResult(calculationResult)
-      setPage(0)
+      setShowResult(true) // 계산 완료 후 결과 표시
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다')
       console.error('Calculation error:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCalculateComplete = () => {
+    // 스크롤을 부드럽게 아래로 이동하여 결과를 보여줌
+    setTimeout(() => {
+      const resultElement = document.getElementById('calculation-result')
+      if (resultElement) {
+        resultElement.scrollIntoView({ behavior: 'smooth' })
+      }
+    }, 100)
   }
 
   const handleSave = (form: FormInputData) => {
@@ -68,6 +78,7 @@ function App() {
 
   const handleLoad = (form: FormInputData) => {
     setActiveForm(form)
+    setShowResult(false) // 새로운 폼 로드 시 결과 숨김
     handleCalculate(form)
   }
 
@@ -78,8 +89,6 @@ function App() {
     setSavedItems(updated)
     localStorage.setItem("savedItems", JSON.stringify(updated))
   }
-
-  const pageSize = 60
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gray-100">
@@ -113,7 +122,13 @@ function App() {
 
       {/* 본문 - 반응형 */}
       <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
-        <InputForm onCalculate={handleCalculate} onSave={handleSave} onDelete={handleDelete} defaultForm={activeForm} />
+        <MultiStepInputForm 
+          onCalculate={handleCalculate} 
+          onSave={handleSave} 
+          onDelete={handleDelete} 
+          defaultForm={activeForm}
+          onCalculateComplete={handleCalculateComplete}
+        />
 
         {loading && (
           <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-white rounded-xl shadow-md p-4 lg:p-6">
@@ -130,15 +145,19 @@ function App() {
           </div>
         )}
 
-        {result && <ResultCard
-          monthlyPayment={result.monthlyPayment}
-          yearlyIncome={result.yearlyIncome}
-          yearlyCost={result.yearlyCost}
-          yearlyProfit={result.yearlyProfit}
-          yieldPercent={result.yieldPercent}
-          grossYield={result.grossYield}
-          schedule={(result as any).schedule || result.repaymentSchedule || []}
-        />}
+        {showResult && result && (
+          <div id="calculation-result" className="mt-6">
+            <ResultCard
+              monthlyPayment={result.monthlyPayment}
+              yearlyIncome={result.yearlyIncome}
+              yearlyCost={result.yearlyCost}
+              yearlyProfit={result.yearlyProfit}
+              yieldPercent={result.yieldPercent}
+              grossYield={result.grossYield}
+              schedule={(result as any).schedule || result.repaymentSchedule || []}
+            />
+          </div>
+        )}
       </main>
     </div>
   )
