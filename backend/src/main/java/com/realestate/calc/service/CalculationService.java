@@ -26,6 +26,7 @@ public class CalculationService {
 
                 // 클라이언트에서 서버로 이동한 계산 로직
                 double totalPurchaseCost = request.getTotalPurchaseCost() * 10000; // 만원을 원으로 변환
+                double purchasePrice = request.getPrice() * 10000; // 매입가만 원으로 변환 (표면 이익율 계산용)
                 double loan = request.getLoan() * 10000;
                 double i = request.getRate() / 100 / 12;
                 int n = request.getTerm() * 12;
@@ -69,7 +70,7 @@ public class CalculationService {
 
                 double yearlyProfit = yearlyIncome - yearlyCost;
                 double yieldPercent = (totalPurchaseCost > 0) ? (yearlyProfit / totalPurchaseCost) * 100 : 0;
-                double grossYield = (totalPurchaseCost > 0) ? (yearlyIncome / totalPurchaseCost) * 100 : 0;
+                double grossYield = (purchasePrice > 0) ? (yearlyIncome / purchasePrice) * 100 : 0; // 표면 이익율은 매입가만 기준
 
                 CalculationResult result = new CalculationResult(
                                 String.valueOf(Math.round(monthlyPayment)),
