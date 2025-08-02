@@ -4,16 +4,27 @@ FROM node:20-alpine AS build
 # 작업 디렉토리 설정
 WORKDIR /workspace
 
+# DNS 설정 추가
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
+RUN echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+
 # shared 모듈 복사 및 설치
 COPY shared/package*.json ./shared/
 COPY shared/ ./shared/
 WORKDIR /workspace/shared
-RUN npm ci && npm run build
+RUN npm ci --registry=https://registry.npmjs.org/ \
+    --fetch-retries=5 \
+    --fetch-retry-mintimeout=20000 \
+    --fetch-retry-maxtimeout=120000 && \
+    npm run build
 
 # pcweb 소스 복사 및 빌드
 WORKDIR /workspace/pcweb
 COPY pcweb/package*.json ./
-RUN npm ci
+RUN npm ci --registry=https://registry.npmjs.org/ \
+    --fetch-retries=5 \
+    --fetch-retry-mintimeout=20000 \
+    --fetch-retry-maxtimeout=120000
 COPY pcweb/ ./
 RUN npm run build
 
