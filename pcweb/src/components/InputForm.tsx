@@ -47,7 +47,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
   ].reduce((sum, cost) => sum + cost, 0)
 
   const totalPurchaseCost = calculateTotalPurchaseCost(form)
-  const loanAmount = Math.max(0, totalPurchaseCost - (parseFloat(form.ownCapital) || 0) * 10000)
+  const loanAmount = Math.max(0, totalPurchaseCost - (parseFloat(form.ownCapital) || 0))
 
   // 감가상각비 계산 (건물가격 / 구조별 내용연수)
   const depreciationExpense = (parseFloat(form.buildingPrice) || 0) * 10000 / STRUCTURE_LIFESPANS[form.structure]
@@ -299,7 +299,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">매입가 + 제비용 합계</span>
               <span className="text-lg font-bold text-blue-600">
-                {totalPurchaseCost.toLocaleString()} 円
+                {totalPurchaseCost.toLocaleString()} 万円
               </span>
             </div>
           </div>
@@ -519,7 +519,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">총매입비용 - 자기자금</span>
               <span className="text-lg font-bold text-green-600">
-                {(loanAmount / 10000).toFixed(1)} 万円
+                {loanAmount.toLocaleString()} 万円
               </span>
             </div>
           </div>
