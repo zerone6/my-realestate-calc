@@ -8,12 +8,8 @@ WORKDIR /workspace
 ENV NPM_CONFIG_MAXSOCKETS=5
 ENV NPM_CONFIG_TIMEOUT=300000
 
-# DNS 설정 추가
-RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
-RUN echo "nameserver 8.8.4.4" >> /etc/resolv.conf
-
-# 네트워크 테스트
-RUN apk add --no-cache curl && \
+# 네트워크 테스트 및 패키지 설치
+RUN apk add --no-cache curl bind-tools && \
     curl -I https://registry.npmjs.org/ || echo "NPM registry check failed"
 
 # shared 모듈 복사 및 설치
