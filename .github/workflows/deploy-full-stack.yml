@@ -72,19 +72,21 @@ jobs:
             echo "=== Docker Network Configuration ==="
             docker network ls
             
-            # Backend 빌드 및 실행 (더 강화된 DNS 설정)
+            # Backend 빌드 및 실행 (오프라인 모드 및 캐시 활용)
             echo "=== Building Backend ==="
             DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
               --add-host=repo.maven.apache.org:151.101.64.215 \
               --add-host=repo1.maven.org:151.101.64.215 \
-              --add-host=registry.npmjs.org:104.16.30.34 \
-              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              --add-host=registry-1.docker.io:52.7.56.154 \
+              --dns=8.8.8.8 \
+              --dns=1.1.1.1 \
               -t realestate-backend ./backend || {
-                echo "Backend build failed, retrying..."
+                echo "Backend build failed, trying with fallback settings..."
                 sleep 30
-                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
+                # 더 보수적인 설정으로 재시도
+                DOCKER_BUILDKIT=1 docker build --network=none \
                   --add-host=repo.maven.apache.org:151.101.64.215 \
-                  --add-host=repo1.maven.org:151.101.64.215 \
+                  --add-host=repo1.maven.org:52.7.56.154 \
                   -t realestate-backend ./backend
               }
             docker compose up -d backend
@@ -100,19 +102,20 @@ jobs:
               sleep 2
             done
             
-            # Frontend 빌드 및 실행 (더 강화된 재시도 메커니즘)
+            # Frontend 빌드 및 실행 (안정성 우선 설정)
             echo "=== Building Frontend ==="
             DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
               --add-host=registry.npmjs.org:104.16.30.34 \
-              --add-host=registry.yarnpkg.com:104.16.30.34 \
-              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              --add-host=registry-1.docker.io:52.7.56.154 \
+              --dns=8.8.8.8 \
+              --dns=1.1.1.1 \
               -t realestate-pcweb -f ./pcweb/Dockerfile . || {
-                echo "Frontend build failed, retrying..."
+                echo "Frontend build failed, trying with fallback settings..."
                 sleep 30
-                # 캐시 클리어 후 재시도
-                docker system prune -f
-                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
+                # Alpine 패키지 서버를 위한 fallback
+                DOCKER_BUILDKIT=1 docker build --network=none \
                   --add-host=registry.npmjs.org:104.16.30.34 \
+                  --add-host=dl-cdn.alpinelinux.org:151.101.2.133 \
                   -t realestate-pcweb -f ./pcweb/Dockerfile .
               }
             docker compose up -d pcweb
