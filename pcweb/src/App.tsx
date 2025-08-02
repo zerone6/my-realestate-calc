@@ -82,39 +82,51 @@ function App() {
   const pageSize = 60
 
   return (
-    <div className="min-h-screen flex bg-gray-100">
-      {/* 좌측 사이드바 */}
-      <aside className="w-64 bg-white shadow-md p-4">
-        <h2 className="text-xl font-bold mb-4">📂 저장된 계산</h2>
-        <ul className="space-y-2">
-          {savedItems.map((item, idx) => (
-            <li
-              key={idx}
-              className="cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600"
-              onClick={() => handleLoad(item.form)}
-            >
-              {item.name}
-            </li>
-          ))}
-        </ul>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-100">
+      {/* 모바일 헤더 (데스크톱에서는 숨김) */}
+      <div className="lg:hidden bg-white shadow-md p-4">
+        <h1 className="text-lg font-bold text-center">부동산 수익성 계산기</h1>
+      </div>
+
+      {/* 좌측 사이드바 - 반응형 */}
+      <aside className="w-full lg:w-64 bg-white shadow-md p-4 lg:h-screen overflow-y-auto">
+        <h2 className="text-lg lg:text-xl font-bold mb-4">📂 저장된 계산</h2>
+        <div className="lg:block">
+          {savedItems.length === 0 ? (
+            <p className="text-sm text-gray-500">저장된 계산이 없습니다</p>
+          ) : (
+            <ul className="space-y-2 max-h-40 lg:max-h-none overflow-y-auto lg:overflow-visible">
+              {savedItems.map((item) => (
+                <li key={item.name}>
+                  <button
+                    className="w-full text-left cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600 p-2 rounded hover:bg-gray-50"
+                    onClick={() => handleLoad(item.form)}
+                  >
+                    {item.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </aside>
 
-      {/* 본문 */}
-      <main className="flex-1 p-6 overflow-x-auto">
+      {/* 본문 - 반응형 */}
+      <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
         <InputForm onCalculate={handleCalculate} onSave={handleSave} onDelete={handleDelete} defaultForm={activeForm} />
 
         {loading && (
-          <div className="max-w-4xl mx-auto mt-6 bg-white rounded-xl shadow-md p-6">
+          <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-white rounded-xl shadow-md p-4 lg:p-6">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <p className="mt-2 text-gray-600">계산 중...</p>
+              <div className="inline-block animate-spin rounded-full h-6 w-6 lg:h-8 lg:w-8 border-b-2 border-blue-500"></div>
+              <p className="mt-2 text-sm lg:text-base text-gray-600">계산 중...</p>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="max-w-4xl mx-auto mt-6 bg-red-50 border border-red-200 rounded-xl shadow-md p-6">
-            <p className="text-red-600">오류: {error}</p>
+          <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-red-50 border border-red-200 rounded-xl shadow-md p-4 lg:p-6">
+            <p className="text-red-600 text-sm lg:text-base">오류: {error}</p>
           </div>
         )}
 
@@ -125,7 +137,7 @@ function App() {
           yearlyProfit={result.yearlyProfit}
           yieldPercent={result.yieldPercent}
           grossYield={result.grossYield}
-          schedule={result.repaymentSchedule}
+          schedule={(result as any).schedule || result.repaymentSchedule || []}
         />}
       </main>
     </div>

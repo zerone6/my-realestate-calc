@@ -62,17 +62,19 @@ export interface FormInputData {
     propertyTax: string // 고정자산세+도시계획세 (만엔)
     managementFeeRate: string // 관리비 비율 (%)
     managementFee: string // 관리비 (만엔)
-    repairCostRate: string // 수선비 비율 (%)
-    repairCost: string // 수선비 (만엔)
-    otherExpensesRate: string // 기타경비 비율 (%)
+    maintenanceFeeRate: string // 수선비 비율 (%)
+    maintenanceFee: string // 수선비 (만엔)
+    insurance: string // 보험료 (만엔)
     otherExpenses: string // 기타경비 (만엔)
 
     // 네 번째 블럭: 제비용 세부항목
-    initialCost1: string
-    initialCost2: string
-    initialCost3: string
-    initialCost4: string
-    initialCost5: string
+    brokerageFee: string // 중개수수료
+    registrationFee: string // 등기비용
+    acquisitionTax: string // 취득세
+    stampDuty: string // 인지세
+    loanFee: string // 대출수수료
+    surveyFee: string // 감정비용
+    miscellaneousFees: string // 잡비
 }
 
 // API response types

@@ -9,21 +9,21 @@ public class CalculationResult {
     private String yearlyProfit;
     private String yieldPercent;
     private String grossYield;
-    private List<RepaymentSchedule> schedule;
+    private List<RepaymentSchedule> repaymentSchedule; // schedule → repaymentSchedule 변경
 
     public CalculationResult() {
     }
 
     public CalculationResult(String monthlyPayment, String yearlyIncome, String yearlyCost,
             String yearlyProfit, String yieldPercent, String grossYield,
-            List<RepaymentSchedule> schedule) {
+            List<RepaymentSchedule> repaymentSchedule) {
         this.monthlyPayment = monthlyPayment;
         this.yearlyIncome = yearlyIncome;
         this.yearlyCost = yearlyCost;
         this.yearlyProfit = yearlyProfit;
         this.yieldPercent = yieldPercent;
         this.grossYield = grossYield;
-        this.schedule = schedule;
+        this.repaymentSchedule = repaymentSchedule;
     }
 
     // Getters and Setters
@@ -75,12 +75,12 @@ public class CalculationResult {
         this.grossYield = grossYield;
     }
 
-    public List<RepaymentSchedule> getSchedule() {
-        return schedule;
+    public List<RepaymentSchedule> getRepaymentSchedule() {
+        return repaymentSchedule;
     }
 
-    public void setSchedule(List<RepaymentSchedule> schedule) {
-        this.schedule = schedule;
+    public void setRepaymentSchedule(List<RepaymentSchedule> repaymentSchedule) {
+        this.repaymentSchedule = repaymentSchedule;
     }
 
     public static class RepaymentSchedule {
