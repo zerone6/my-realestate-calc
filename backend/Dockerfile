@@ -2,9 +2,16 @@
 FROM maven:3.8-openjdk-17-slim AS build
 WORKDIR /app
 
+# 홈서버 환경을 위한 네트워크 설정
+ENV MAVEN_OPTS="-Dmaven.repo.local=/root/.m2/repository -Dhttp.maxConnections=10 -Dhttp.socketTimeout=60000 -Dhttp.connectionTimeout=60000"
+
 # DNS 설정 추가
 RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
 RUN echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+
+# 네트워크 테스트
+RUN apt-get update && apt-get install -y curl && \
+    curl -I https://repo.maven.apache.org/maven2/ || echo "Maven repo check failed"
 
 # pom.xml과 소스 복사
 COPY pom.xml .
