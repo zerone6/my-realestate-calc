@@ -7,13 +7,12 @@ import DescriptionTooltip from './DescriptionTooltip'
 
 interface FormProps {
   onCalculate: (form: FormInputData) => void
-  onSave: (form: FormInputData) => void
-  onDelete: (name: string) => void
+  onAutoSave: (form: FormInputData) => void
   defaultForm?: FormInputData | null
   onCalculateComplete?: () => void // 계산 완료 시 호출할 콜백
 }
 
-export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defaultForm, onCalculateComplete }: Readonly<FormProps>) {
+export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultForm, onCalculateComplete }: Readonly<FormProps>) {
   const [form, setForm] = useState<FormInputData>(() => {
     // localStorage에서 저장된 폼 데이터 복원 시도
     try {
@@ -175,16 +174,16 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
   }
 
   const handleCalculateClick = () => {
+    autoSave() // 계산하기 전 자동 저장
     onCalculate(form)
     onCalculateComplete?.() // 계산 완료 콜백 호출
   }
 
-  const handleSaveClick = () => {
-    if (form.name.trim() === '') {
-      alert('물건 이름을 입력해주세요.')
-      return
+  // 자동 저장 함수
+  const autoSave = () => {
+    if (form.name.trim() !== '') {
+      onAutoSave(form)
     }
-    onSave(form)
   }
 
   const handleResetForm = () => {
@@ -204,17 +203,20 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
+      autoSave() // 다음 단계로 가기 전 자동 저장
       setCurrentStep(currentStep + 1)
     }
   }
 
   const prevStep = () => {
     if (currentStep > 0) {
+      autoSave() // 이전 단계로 가기 전 자동 저장
       setCurrentStep(currentStep - 1)
     }
   }
 
   const goToStep = (step: number) => {
+    autoSave() // 단계 이동 전 자동 저장
     setCurrentStep(step)
   }
 
@@ -981,25 +983,11 @@ export default function MultiStepInputForm({ onCalculate, onSave, onDelete, defa
               계산하기
             </button>
             <button
-              onClick={handleSaveClick}
-              className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            >
-              저장
-            </button>
-            <button
               onClick={handleResetForm}
               className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
             >
               초기화
             </button>
-            {form.name && (
-              <button
-                onClick={() => onDelete(form.name)}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-              >
-                삭제
-              </button>
-            )}
           </div>
 
           {/* 다음 버튼 */}

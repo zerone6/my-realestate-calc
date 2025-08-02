@@ -13,6 +13,7 @@ function CalculatorApp() {
   const [error, setError] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false) // 결과 표시 상태
   const [activeTab, setActiveTab] = useState(0) // 현재 활성 탭
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false) // 모바일 사이드바 상태
 
   // 탭 정보
   const tabs = [
@@ -60,10 +61,9 @@ function CalculatorApp() {
     }, 100)
   }
 
-  const handleSave = (form: FormInputData) => {
-    if (!form.name) {
-      alert("물건 이름을 입력하세요")
-      return
+  const handleAutoSave = (form: FormInputData) => {
+    if (!form.name || form.name.trim() === '') {
+      return // 물건 이름이 없으면 저장하지 않음
     }
 
     setSavedItems((prev) => {
@@ -79,14 +79,21 @@ function CalculatorApp() {
         updated = [...prev, { name: form.name, form }]
       }
 
-      // localStorage도 반영
-      localStorage.setItem("savedItems", JSON.stringify(updated))
       return updated
     })
   }
 
+  const handleTabChange = (tabId: number) => {
+    // 탭 변경 시에도 자동 저장
+    if (activeForm?.name?.trim()) {
+      handleAutoSave(activeForm)
+    }
+    setActiveTab(tabId)
+  }
+
   const handleLoad = (form: FormInputData) => {
     setActiveForm(form)
+    setActiveTab(0) // 부동산을 선택하면 첫 번째 탭(수익 계산)으로 이동
     setShowResult(false) // 새로운 폼 로드 시 결과 숨김
     handleCalculate(form)
   }
@@ -147,8 +154,7 @@ function CalculatorApp() {
           <>
             <MultiStepInputForm 
               onCalculate={handleCalculate} 
-              onSave={handleSave} 
-              onDelete={handleDelete} 
+              onAutoSave={handleAutoSave}
               defaultForm={activeForm}
               onCalculateComplete={handleCalculateComplete}
             />
@@ -197,20 +203,81 @@ function CalculatorApp() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col lg:flex-row">
       {/* 좌측 사이드바 - 부동산 물건 전체 정보 저장 영역 */}
-      <aside className="w-full lg:w-64 bg-white shadow-md p-4 lg:h-screen overflow-y-auto">
-        <h2 className="text-lg lg:text-xl font-bold mb-4">📂 저장된 부동산</h2>
-        <div className="lg:block">
+      <aside className="w-full lg:w-64 bg-white shadow-md lg:h-screen overflow-y-auto">
+        {/* 모바일에서는 접히는 헤더 */}
+        <div className="lg:hidden">
+          <button
+            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            className="w-full p-4 text-left bg-gray-50 border-b flex items-center justify-between hover:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center space-x-2">
+              <span className="text-lg">📂</span>
+              <span className="font-medium text-gray-700">저장된 부동산</span>
+              <span className="text-sm text-gray-500">({savedItems.length})</span>
+            </div>
+            <span className={`text-gray-400 transition-transform duration-200 ${
+              isMobileSidebarOpen ? 'rotate-180' : ''
+            }`}>
+              ▼
+            </span>
+          </button>
+          
+          {/* 모바일 접히는 콘텐츠 */}
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            isMobileSidebarOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          }`}>
+            <div className="p-4">
+              {savedItems.length === 0 ? (
+                <p className="text-sm text-gray-500">저장된 부동산이 없습니다</p>
+              ) : (
+                <ul className="space-y-2">
+                  {savedItems.map((item) => (
+                    <li key={item.name} className="flex items-center justify-between bg-gray-50 rounded p-2 hover:bg-gray-100">
+                      <button
+                        className="flex-1 text-left cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600"
+                        onClick={() => {
+                          handleLoad(item.form)
+                          setIsMobileSidebarOpen(false) // 선택 후 자동으로 접기
+                        }}
+                      >
+                        {item.name}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.name)}
+                        className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                        title="삭제"
+                      >
+                        🗑️
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 데스크톱에서는 기존 형태 유지 */}
+        <div className="hidden lg:block p-4">
+          <h2 className="text-lg lg:text-xl font-bold mb-4">📂 저장된 부동산</h2>
           {savedItems.length === 0 ? (
             <p className="text-sm text-gray-500">저장된 부동산이 없습니다</p>
           ) : (
             <ul className="space-y-2 max-h-40 lg:max-h-none overflow-y-auto lg:overflow-visible">
               {savedItems.map((item) => (
-                <li key={item.name}>
+                <li key={item.name} className="flex items-center justify-between bg-gray-50 rounded p-2 hover:bg-gray-100">
                   <button
-                    className="w-full text-left cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600 p-2 rounded hover:bg-gray-50"
+                    className="flex-1 text-left cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600"
                     onClick={() => handleLoad(item.form)}
                   >
                     {item.name}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.name)}
+                    className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                    title="삭제"
+                  >
+                    🗑️
                   </button>
                 </li>
               ))}
@@ -228,7 +295,7 @@ function CalculatorApp() {
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors ${
                     activeTab === tab.id
                       ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
