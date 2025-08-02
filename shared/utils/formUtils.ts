@@ -130,6 +130,7 @@ export function calculateGrossYield(form: FormInputData): number {
     if (price <= 0) return 0
     
     const annualRent = rent * 12
+    // 표면 이익율은 매입가만 기준으로 계산 (매입가는 만원 단위이므로 10000을 곱해서 원 단위로 변환)
     return (annualRent / (price * 10000)) * 100
 }
 

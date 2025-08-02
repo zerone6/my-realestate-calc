@@ -1,6 +1,5 @@
 import { FormInputData } from '../../../shared/types/RealEstateForm'
 import { 
-  calculateTotalPurchaseCost, 
   calculateBuildingPrice,
   calculateBrokerageFee,
   calculateRegistrationFee,
@@ -18,24 +17,24 @@ const STRUCTURE_LIFESPANS: { [key: string]: number } = {
 
 // 표면이율 연동 계산
 const updateGrossYieldCalculations = (newForm: FormInputData, name: string, value: string): FormInputData => {
-  const totalCost = calculateTotalPurchaseCost(newForm);
+  const purchasePrice = parseFloat(newForm.price) || 0; // 매입가만 사용 (표면 이익율 계산용)
 
   if (name === 'rent' || (name.startsWith('initialCost') && !name.endsWith('Name'))) {
     const rent = parseFloat(newForm.rent) || 0;
-    if (totalCost > 0 && rent > 0) {
-      const newGrossYield = (rent * 12 / totalCost * 100).toFixed(1);
+    if (purchasePrice > 0 && rent > 0) {
+      const newGrossYield = (rent * 12 / purchasePrice * 100).toFixed(1);
       return { ...newForm, grossYield: newGrossYield };
     }
   } else if (name === 'price') {
     const grossYield = parseFloat(newForm.grossYield) || 6.0;
-    if (totalCost > 0) {
-      const newRent = (totalCost * grossYield / 100 / 12).toFixed(1);
+    if (purchasePrice > 0) {
+      const newRent = (purchasePrice * grossYield / 100 / 12).toFixed(1);
       return { ...newForm, rent: newRent };
     }
   } else if (name === 'grossYield') {
     const grossYield = parseFloat(value) || 0;
-    if (totalCost > 0) {
-      const newRent = (totalCost * grossYield / 100 / 12).toFixed(1);
+    if (purchasePrice > 0) {
+      const newRent = (purchasePrice * grossYield / 100 / 12).toFixed(1);
       return { ...newForm, rent: newRent };
     }
   }
