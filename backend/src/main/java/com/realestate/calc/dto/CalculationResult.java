@@ -1,6 +1,7 @@
 package com.realestate.calc.dto;
 
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class CalculationResult {
     private String monthlyPayment;
@@ -84,27 +85,29 @@ public class CalculationResult {
     }
 
     public static class RepaymentSchedule {
+        @JsonProperty("month")
         private int no;
         private String date;
         private int payment;
         private int principal;
         private double interest;
+        @JsonProperty("remaining")
         private double balance;
-        private double estimatedMonthlyRent;
+        private double rent;
         private double cashFlow;
 
         public RepaymentSchedule() {
         }
 
         public RepaymentSchedule(int no, String date, int payment, int principal, double interest, double balance,
-                double estimatedMonthlyRent) {
+                double rent) {
             this.no = no;
             this.date = date;
             this.payment = payment;
             this.principal = principal;
             this.interest = interest;
             this.balance = balance;
-            this.estimatedMonthlyRent = estimatedMonthlyRent;
+            this.rent = rent;
         }
 
         // Getters and Setters
@@ -156,12 +159,12 @@ public class CalculationResult {
             this.balance = balance;
         }
 
-        public double getEstimatedMonthlyRent() {
-            return estimatedMonthlyRent;
+        public double getRent() {
+            return rent;
         }
 
-        public void setEstimatedMonthlyRent(double estimatedMonthlyRent) {
-            this.estimatedMonthlyRent = estimatedMonthlyRent;
+        public void setRent(double rent) {
+            this.rent = rent;
         }
 
         public double getCashFlow() {
