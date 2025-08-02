@@ -25,10 +25,10 @@ jobs:
           username: zerone6
           key: ${{ secrets.DEPLOY_KEY }}
           source: |
-            backend
-            pcweb
-            shared
-            nginx
+            backend/**
+            pcweb/**
+            shared/**
+            nginx/**
             docker-compose.yml
           target: ~/app/
           overwrite: true
