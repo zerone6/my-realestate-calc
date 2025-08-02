@@ -34,7 +34,7 @@ RUN npm ci
 COPY pcweb/ ./
 RUN npm run build
 
-# Nginx 단계
+# Nginx 단계 Test
 FROM nginx:1.25-alpine
 # 빌드 결과물을 nginx 루트에 복사
 COPY --from=build /workspace/pcweb/dist /usr/share/nginx/html
