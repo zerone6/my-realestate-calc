@@ -5,11 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**'
-      - 'pcweb/**'
-      - 'shared/**'
-      - 'nginx/**'
-      - 'docker-compose.yml'
+      - "backend/**"
+      - "pcweb/**"
+      - "shared/**"
+      - "nginx/**"
+      - "docker-compose.yml"
 
 jobs:
   deploy:
@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
+
       - name: Copy all files to server
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -28,7 +28,7 @@ jobs:
           target: "~/app/"
           overwrite: true
           rm: true
-      
+
       - name: Deploy full stack
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -36,42 +36,38 @@ jobs:
           username: zerone6
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
+            # Configure Docker DNS for stability
+            echo "=== Configuring Docker DNS ==="
+            echo '{"dns": ["8.8.8.8", "1.1.1.1"]}' | sudo tee /etc/docker/daemon.json
+            sudo systemctl restart docker
+            sleep 5 # Give Docker time to restart
+
             cd ~/app
-            
+
             # 네트워크 연결 테스트
             echo "=== Network Test ==="
             ping -c 3 8.8.8.8 || echo "Google DNS ping failed"
             dig @8.8.8.8 registry.npmjs.org || echo "NPM registry DNS lookup failed"
             dig @8.8.8.8 repo.maven.apache.org || echo "Maven repo DNS lookup failed"
-            
+
             # 네트워크 생성 (이미 존재하면 무시)
             docker network create app-network || true
-            
+
             # 기존 컨테이너 정리
             docker compose down --remove-orphans || true
-            
+
             # 오래된 이미지 정리
             docker image prune -f || true
-            
+
             # Docker 빌드 시 DNS 설정 적용
             export DOCKER_BUILDKIT=1
             export BUILDKIT_PROGRESS=plain
-            
+
             # Backend 빌드 및 실행
             echo "=== Building Backend ==="
-            DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
-              --add-host=repo.maven.apache.org:151.101.64.215 \
-              --add-host=repo1.maven.org:151.101.64.215 \
-              -t realestate-backend ./backend || {
-                echo "Backend build failed, retrying..."
-                sleep 30
-                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
-                  --add-host=repo.maven.apache.org:151.101.64.215 \
-                  --add-host=repo1.maven.org:151.101.64.215 \
-                  -t realestate-backend ./backend
-              }
+            DOCKER_BUILDKIT=1 docker build --network=host --no-cache -t realestate-backend ./backend
             docker compose up -d backend
-            
+
             # Backend 헬스체크
             echo "=== Backend Health Check ==="
             for i in {1..30}; do
@@ -82,34 +78,24 @@ jobs:
               echo "Waiting for backend... ($i/30)"
               sleep 2
             done
-            
+
             # Frontend 빌드 및 실행
             echo "=== Building Frontend ==="
-            DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
-              --add-host=registry.npmjs.org:104.16.30.34 \
-              --add-host=dl-cdn.alpinelinux.org:151.101.2.133 \
-              -t realestate-pcweb -f ./pcweb/Dockerfile . || {
-                echo "Frontend build failed, retrying..."
-                sleep 30
-                DOCKER_BUILDKIT=1 docker build --network=host --no-cache \
-                  --add-host=registry.npmjs.org:104.16.30.34 \
-                  --add-host=dl-cdn.alpinelinux.org:151.101.2.133 \
-                  -t realestate-pcweb -f ./pcweb/Dockerfile .
-              }
+            DOCKER_BUILDKIT=1 docker build --network=host --no-cache -t realestate-pcweb -f ./pcweb/Dockerfile .
             docker compose up -d pcweb
-            
+
             # Frontend 대기
             sleep 10
-            
+
             # Nginx 실행
             echo "=== Starting Nginx ==="
             docker compose up -d nginx
-            
+
             # 최종 상태 확인
             sleep 5
             echo "=== Container Status ==="
             docker compose ps
-            
+
             echo "=== Frontend Check ==="
             if curl -f http://localhost:3001 2>/dev/null; then
               echo "Frontend is accessible"
@@ -118,7 +104,7 @@ jobs:
               echo "Frontend logs:"
               docker compose logs pcweb --tail=10
             fi
-            
+
             echo "=== Nginx Check ==="
             if curl -f http://localhost/ 2>/dev/null; then
               echo "Nginx is accessible"
