@@ -13,7 +13,7 @@ import java.util.List;
 public class CalculationService {
 
         public CalculationResult calculate(CalculationRequest request) {
-                // 디버깅을 위한 로그 추가
+                // 디버깅을 위한 로그 추가test
                 System.out.println("DEBUG - ALL REQUEST VALUES:");
                 System.out.println("  price: " + request.getPrice());
                 System.out.println("  totalPurchaseCost: " + request.getTotalPurchaseCost());
