@@ -496,6 +496,15 @@ VITE_APP_TITLE=부동산 정보 관리
 **빌드 실패:**
 - Docker 이미지 캐시 정리: `docker system prune -f`
 - 개별 이미지 재빌드: `docker compose build --no-cache [service]`
+- 네트워크 문제: `docker network create app-network`
+
+**Backend 빌드 오류:**
+- Maven 의존성 문제: Dockerfile에서 멀티스테이지 빌드 사용
+- JAR 파일 없음: 빌드 스테이지에서 Maven 실행 확인
+
+**Frontend 빌드 오류:**
+- Shared 모듈 참조 실패: 루트 컨텍스트에서 빌드
+- Node.js 의존성 문제: `npm install` 순서 확인
 
 **Nginx 설정 오류:**
 - 설정 파일 구문 확인: `docker exec nginx nginx -t`
@@ -504,3 +513,8 @@ VITE_APP_TITLE=부동산 정보 관리
 **API 연결 실패:**
 - 백엔드 헬스체크: `curl http://localhost:8080/api/calculation/health`
 - 네트워크 설정 확인: `docker network ls`
+- 컨테이너 간 통신: `docker exec nginx ping backend`
+
+**Docker Compose 버전 경고:**
+- `version` 속성은 최신 Docker Compose에서 더 이상 필요하지 않음
+- 모든 docker-compose.yml에서 version 라인 제거됨

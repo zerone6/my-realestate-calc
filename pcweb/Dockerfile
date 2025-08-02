@@ -1,28 +1,25 @@
 # React 빌드 단계
 FROM node:20-alpine as build
-WORKDIR /app
 
-# shared 모듈 복사
-COPY ../shared /app/shared
+# 작업 디렉토리 설정
+WORKDIR /workspace
 
-# pcweb 소스 복사
-COPY package*.json ./
+# shared 모듈 복사 및 설치
+COPY shared ./shared
+WORKDIR /workspace/shared
+RUN npm install && npm run build
+
+# pcweb 소스 복사 및 빌드
+WORKDIR /workspace/pcweb
+COPY pcweb/package*.json ./
 RUN npm install
-COPY . .
-
-# shared 모듈 설치
-WORKDIR /app/shared
-RUN npm install
-RUN npm run build
-
-# pcweb 빌드
-WORKDIR /app
+COPY pcweb .
 RUN npm run build
 
 # Nginx 단계
 FROM nginx:1.25-alpine
 # 빌드 결과물을 nginx 루트에 복사
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /workspace/pcweb/dist /usr/share/nginx/html
 
 # React Router를 위한 nginx 설정
 RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \

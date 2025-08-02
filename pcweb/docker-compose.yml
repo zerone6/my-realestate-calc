@@ -1,9 +1,8 @@
-version: "3.8"
 services:
   pcweb:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: pcweb/Dockerfile
     container_name: pcweb
     ports:
       - "3001:80"

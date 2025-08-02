@@ -29,7 +29,9 @@ jobs:
           username: zerone6
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            cd ~/app/nginx
-            docker compose down
-            docker compose build --no-cache
-            docker compose up -d
+            cd ~/app
+            
+            # nginx 컨테이너만 재시작
+            docker compose stop nginx || true
+            docker compose rm -f nginx || true
+            docker compose up -d nginx
