@@ -11,6 +11,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Copy backend files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: mirainest.asuscomm.com
+          username: zerone6
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "backend/"
+          target: "~/app/"
+          overwrite: true
+      
       - name: Deploy backend
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -18,7 +28,13 @@ jobs:
           username: zerone6
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            cd ~/app/backend
-            docker compose down
-            docker compose build
-            docker compose up -d
+            cd ~/app
+            
+            # 네트워크 생성 (이미 존재하면 무시)
+            docker network create app-network || true
+            
+            # backend 컨테이너만 재빌드
+            docker compose stop backend || true
+            docker compose rm -f backend || true
+            docker compose build --no-cache backend
+            docker compose up -d backend

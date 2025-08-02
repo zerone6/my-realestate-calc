@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   app-network:
     driver: bridge
@@ -20,7 +18,9 @@ services:
       retries: 3
 
   pcweb:
-    build: ./pcweb
+    build: 
+      context: .
+      dockerfile: pcweb/Dockerfile
     container_name: pcweb
     ports:
       - "3001:80"

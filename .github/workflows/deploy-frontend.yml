@@ -30,7 +30,13 @@ jobs:
           username: zerone6
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            cd ~/app/pcweb
-            docker compose down
-            docker compose build --no-cache
-            docker compose up -d
+            cd ~/app
+            
+            # 네트워크 생성 (이미 존재하면 무시)
+            docker network create app-network || true
+            
+            # pcweb 컨테이너만 재빌드
+            docker compose stop pcweb || true
+            docker compose rm -f pcweb || true
+            docker compose build --no-cache pcweb
+            docker compose up -d pcweb

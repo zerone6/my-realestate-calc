@@ -44,13 +44,35 @@ jobs:
             # 기존 컨테이너 정리
             docker compose down --remove-orphans || true
             
+            # 오래된 이미지 정리
+            docker image prune -f || true
+            
             # 새로운 빌드 및 실행
             docker compose build --no-cache
             docker compose up -d
             
             # 컨테이너 상태 확인
-            sleep 10
+            sleep 15
             docker compose ps
             
+            # 헬스체크
+            echo "=== Backend Health Check ==="
+            for i in {1..30}; do
+              if curl -f http://localhost:8080/api/calculation/health 2>/dev/null; then
+                echo "Backend is healthy"
+                break
+              fi
+              echo "Waiting for backend... ($i/30)"
+              sleep 2
+            done
+            
+            echo "=== Frontend Check ==="
+            if curl -f http://localhost:3001 2>/dev/null; then
+              echo "Frontend is accessible"
+            else
+              echo "Frontend check failed"
+            fi
+            
             # 로그 확인 (에러가 있다면)
-            docker compose logs --tail=50
+            echo "=== Container Logs ==="
+            docker compose logs --tail=20
