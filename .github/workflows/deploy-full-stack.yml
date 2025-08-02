@@ -1,0 +1,56 @@
+name: Deploy Full Stack
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'pcweb/**'
+      - 'shared/**'
+      - 'nginx/**'
+      - 'docker-compose.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Copy all files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: mirainest.asuscomm.com
+          username: zerone6
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "."
+          target: "~/app/"
+          overwrite: true
+          rm: true
+      
+      - name: Deploy full stack
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: mirainest.asuscomm.com
+          username: zerone6
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd ~/app
+            
+            # 네트워크 생성 (이미 존재하면 무시)
+            docker network create app-network || true
+            
+            # 기존 컨테이너 정리
+            docker compose down --remove-orphans || true
+            
+            # 새로운 빌드 및 실행
+            docker compose build --no-cache
+            docker compose up -d
+            
+            # 컨테이너 상태 확인
+            sleep 10
+            docker compose ps
+            
+            # 로그 확인 (에러가 있다면)
+            docker compose logs --tail=50

@@ -1,6 +1,18 @@
 import { CalculationRequest, CalculationResult } from '../types/RealEstateForm'
 
-const API_BASE_URL = 'http://localhost:8080/api'
+// 환경에 따른 API 베이스 URL 설정
+function determineApiBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8080/api'
+  }
+  
+  const isLocalhost = window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1'
+  
+  return isLocalhost ? 'http://localhost:8080/api' : '/api'
+}
+
+const API_BASE_URL = determineApiBaseUrl()
 
 /**
  * API 에러 클래스
