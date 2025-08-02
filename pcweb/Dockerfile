@@ -4,9 +4,13 @@ FROM node:20-alpine AS build
 # 작업 디렉토리 설정
 WORKDIR /workspace
 
-# 홈서버 환경을 위한 npm 설정
-ENV NPM_CONFIG_MAXSOCKETS=5
-ENV NPM_CONFIG_TIMEOUT=300000
+# 홈서버 환경을 위한 npm 설정 (더 관대한 설정)
+ENV NPM_CONFIG_MAXSOCKETS=3
+ENV NPM_CONFIG_TIMEOUT=600000
+ENV NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+ENV NPM_CONFIG_FETCH_RETRIES=10
+ENV NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=30000
+ENV NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=300000
 
 # 네트워크 테스트 및 패키지 설치
 RUN apk add --no-cache curl bind-tools && \
@@ -16,21 +20,12 @@ RUN apk add --no-cache curl bind-tools && \
 COPY shared/package*.json ./shared/
 COPY shared/ ./shared/
 WORKDIR /workspace/shared
-RUN npm ci --registry=https://registry.npmjs.org/ \
-    --fetch-retries=5 \
-    --fetch-retry-mintimeout=20000 \
-    --fetch-retry-maxtimeout=120000 \
-    --maxsockets=5 && \
-    npm run build
+RUN npm ci && npm run build
 
 # pcweb 소스 복사 및 빌드
 WORKDIR /workspace/pcweb
 COPY pcweb/package*.json ./
-RUN npm ci --registry=https://registry.npmjs.org/ \
-    --fetch-retries=5 \
-    --fetch-retry-mintimeout=20000 \
-    --fetch-retry-maxtimeout=120000 \
-    --maxsockets=5
+RUN npm ci
 COPY pcweb/ ./
 RUN npm run build
 

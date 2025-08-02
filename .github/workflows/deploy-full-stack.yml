@@ -80,11 +80,10 @@ jobs:
               sleep 2
             done
             
-            # Frontend 빌드 및 실행 (DNS 설정을 빌드 시에 적용)
+            # Frontend 빌드 및 실행 (환경변수로 설정 간소화)
             echo "=== Building Frontend ==="
             docker build --network=host --no-cache \
               --add-host=registry.npmjs.org:104.16.30.34 \
-              --add-host=repo.maven.apache.org:151.101.64.215 \
               -t realestate-pcweb -f ./pcweb/Dockerfile .
             docker compose up -d pcweb
             
