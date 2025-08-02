@@ -18,7 +18,7 @@ RUN mkdir -p /root/.m2 && \
     echo '    <mirror>' >> /root/.m2/settings.xml && \
     echo '      <id>central-mirror</id>' >> /root/.m2/settings.xml && \
     echo '      <mirrorOf>central</mirrorOf>' >> /root/.m2/settings.xml && \
-    echo '      <url>https://repo1.maven.org/maven2</url>' >> /root/.m2/settings.xml && \
+    echo '      <url>https://repo.maven.apache.org/maven2</url>' >> /root/.m2/settings.xml && \
     echo '    </mirror>' >> /root/.m2/settings.xml && \
     echo '  </mirrors>' >> /root/.m2/settings.xml && \
     echo '</settings>' >> /root/.m2/settings.xml
