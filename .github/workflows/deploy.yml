@@ -1,0 +1,64 @@
+name: Deploy Application  
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'pcweb/**'
+      - 'shared/**'
+      - 'nginx/**'
+      - 'docker-compose.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Copy application to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: mirainest.asuscomm.com
+          username: zerone6
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: |
+            backend
+            pcweb
+            shared
+            nginx
+            docker-compose.yml
+          target: ~/app/
+          overwrite: true
+          rm: true
+
+      - name: Deploy on remote server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: mirainest.asuscomm.com
+          username: zerone6
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd ~/app
+
+            # Configure Docker DNS once
+            if ! sudo grep -q '\"dns\"' /etc/docker/daemon.json 2>/dev/null; then
+              echo '{"dns": ["8.8.8.8", "1.1.1.1"]}' | sudo tee /etc/docker/daemon.json
+              sudo systemctl restart docker
+              sleep 5
+            fi
+
+            # Minimal network test
+            ping -c 1 8.8.8.8 || echo "Network unreachable"
+
+            # Create network
+            docker network create app-network || true
+
+            # Recreate containers
+            docker compose down --remove-orphans
+            docker compose up -d --build
+
+            # Show status
+            docker ps
