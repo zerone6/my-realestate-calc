@@ -13,6 +13,9 @@ public class CalculationRequest {
     @Positive(message = "매입가는 양수여야 합니다")
     private Double price;
 
+    // 총 매입 비용 (매입가 + 제비용)
+    private Double totalPurchaseCost;
+
     @NotNull(message = "대출 금액은 필수입니다")
     @Positive(message = "대출 금액은 양수여야 합니다")
     private Double loan;
@@ -55,6 +58,14 @@ public class CalculationRequest {
 
     public void setPrice(Double price) {
         this.price = price;
+    }
+
+    public Double getTotalPurchaseCost() {
+        return totalPurchaseCost;
+    }
+
+    public void setTotalPurchaseCost(Double totalPurchaseCost) {
+        this.totalPurchaseCost = totalPurchaseCost;
     }
 
     public Double getLoan() {

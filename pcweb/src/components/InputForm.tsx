@@ -85,13 +85,19 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     if (isRelatedToGrossYield) {
       const totalCost = calculateTotalPurchaseCost(newForm);
 
-      if (name === 'rent' || name === 'price' || (name.startsWith('initialCost') && !name.endsWith('Name'))) {
+      if (name === 'rent' || (name.startsWith('initialCost') && !name.endsWith('Name'))) {
         const rent = parseFloat(newForm.rent) || 0;
-        if (totalCost > 0) {
+        if (totalCost > 0 && rent > 0) {
           const newGrossYield = (rent * 12 / totalCost * 100).toFixed(1);
           newForm = { ...newForm, grossYield: newGrossYield };
-        } else {
-          newForm = { ...newForm, grossYield: '0.0' };
+        }
+        // totalCost가 0이거나 rent가 0일 때는 grossYield를 변경하지 않음 (기본값 유지)
+      } else if (name === 'price') {
+        // 매입가가 변경될 때 기존 표면이익율로 월세를 자동 계산
+        const grossYield = parseFloat(newForm.grossYield) || 6.0; // 기본값 6.0% 사용
+        if (totalCost > 0) {
+          const newRent = (totalCost * grossYield / 100 / 12).toFixed(1);
+          newForm = { ...newForm, rent: newRent };
         }
       } else if (name === 'grossYield') {
         const grossYield = parseFloat(value) || 0;
@@ -107,15 +113,15 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     if (name === 'managementFeeRate') {
       const rate = parseFloat(value) || 0;
       const rent = parseFloat(newForm.rent) || 0;
-      const annualRent = rent * 12;
-      const newManagementFee = (annualRent * rate / 100 / 10000).toFixed(1);
+      const annualRentInYen = rent * 10000 * 12; // 만원을 원으로 변환 후 12개월
+      const newManagementFee = (annualRentInYen * rate / 100 / 10000).toFixed(1); // 원을 만원으로 변환
       newForm = { ...newForm, managementFee: newManagementFee };
     } else if (name === 'managementFee') {
       const fee = parseFloat(value) || 0;
       const rent = parseFloat(newForm.rent) || 0;
-      const annualRent = rent * 12;
-      if (annualRent > 0) {
-        const newRate = (fee * 10000 / annualRent * 100).toFixed(1);
+      const annualRentInYen = rent * 10000 * 12; // 만원을 원으로 변환 후 12개월
+      if (annualRentInYen > 0) {
+        const newRate = (fee * 10000 / annualRentInYen * 100).toFixed(1); // 만원을 원으로 변환
         newForm = { ...newForm, managementFeeRate: newRate };
       }
     }
@@ -124,15 +130,15 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     if (name === 'maintenanceFeeRate') {
       const rate = parseFloat(value) || 0;
       const rent = parseFloat(newForm.rent) || 0;
-      const annualRent = rent * 12;
-      const newMaintenanceFee = (annualRent * rate / 100 / 10000).toFixed(1);
+      const annualRentInYen = rent * 10000 * 12; // 만원을 원으로 변환 후 12개월
+      const newMaintenanceFee = (annualRentInYen * rate / 100 / 10000).toFixed(1); // 원을 만원으로 변환
       newForm = { ...newForm, maintenanceFee: newMaintenanceFee };
     } else if (name === 'maintenanceFee') {
       const cost = parseFloat(value) || 0;
       const rent = parseFloat(newForm.rent) || 0;
-      const annualRent = rent * 12;
-      if (annualRent > 0) {
-        const newRate = (cost * 10000 / annualRent * 100).toFixed(1);
+      const annualRentInYen = rent * 10000 * 12; // 만원을 원으로 변환 후 12개월
+      if (annualRentInYen > 0) {
+        const newRate = (cost * 10000 / annualRentInYen * 100).toFixed(1); // 만원을 원으로 변환
         newForm = { ...newForm, maintenanceFeeRate: newRate };
       }
     }
@@ -146,13 +152,13 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
   const updateWithDynamicName = (fieldName: string, value: string) => {
     let newForm = { ...form, [fieldName]: value };
 
-    // 제비용이 변경된 경우 표면이율 재계산
+    // 제비용이 변경된 경우 표면이율에 맞춰 월세 재계산
     if (fieldName.startsWith('initialCost') && !fieldName.endsWith('Name')) {
       const totalCost = calculateTotalPurchaseCost(newForm);
-      const rent = parseFloat(newForm.rent) || 0;
+      const grossYield = parseFloat(newForm.grossYield) || 6.0; // 기본값 6.0% 사용
       if (totalCost > 0) {
-        const newGrossYield = (rent * 12 / totalCost * 100).toFixed(1);
-        newForm = { ...newForm, grossYield: newGrossYield };
+        const newRent = (totalCost * grossYield / 100 / 12).toFixed(1);
+        newForm = { ...newForm, rent: newRent };
       }
     }
 

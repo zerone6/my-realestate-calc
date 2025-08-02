@@ -103,6 +103,7 @@ export interface RepaymentSchedule {
 export interface CalculationRequest {
     name: string
     price: number
+    totalPurchaseCost: number
     loan: number
     rate: number
     term: number
