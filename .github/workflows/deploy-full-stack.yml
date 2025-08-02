@@ -38,10 +38,12 @@ jobs:
           script: |
             # Configure Docker DNS for stability
             echo "=== Configuring Docker DNS ==="
-            if ! sudo grep -q "\"dns\": \[\"8.8.8.8\", \"1.1.1.1\"\]" /etc/docker/daemon.json; then
+            if ! sudo grep -q '"dns": \["8.8.8.8", "1.1.1.1"\]' /etc/docker/daemon.json; then
               echo '{"dns": ["8.8.8.8", "1.1.1.1"]}' | sudo tee /etc/docker/daemon.json
               sudo systemctl restart docker
               sleep 5 # Give Docker time to restart
+            else
+              echo "Docker DNS already configured."
             fi
 
             cd ~/app
