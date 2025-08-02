@@ -51,9 +51,13 @@ jobs:
             # Create network
             docker network create app-network || true
 
-            # Recreate containers
+            # Recreate containers with retry for intermittent build failures
             docker compose down --remove-orphans
-            docker compose up -d --build
+            if ! docker compose up -d --build; then
+              echo "First build attempt failed, retrying after delay..."
+              sleep 15
+              docker compose up -d --build
+            fi
 
             # Show status
             docker ps
