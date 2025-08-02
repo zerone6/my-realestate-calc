@@ -32,6 +32,7 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
     return {
         name: form.name,
         price: safeParseFloat(form.price),
+        totalPurchaseCost: totalPurchaseCost,
         loan: loan,
         rate: safeParseFloat(form.rate),
         term: safeParseInt(form.term),

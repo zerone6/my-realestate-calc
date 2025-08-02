@@ -16,6 +16,7 @@ public class CalculationService {
                 // 디버깅을 위한 로그 추가
                 System.out.println("DEBUG - ALL REQUEST VALUES:");
                 System.out.println("  price: " + request.getPrice());
+                System.out.println("  totalPurchaseCost: " + request.getTotalPurchaseCost());
                 System.out.println("  loan: " + request.getLoan());
                 System.out.println("  rate: " + request.getRate());
                 System.out.println("  term: " + request.getTerm());
@@ -24,7 +25,7 @@ public class CalculationService {
                 System.out.println("  occupancyRate: " + request.getOccupancyRate());
                 
                 // 클라이언트에서 서버로 이동한 계산 로직
-                double price = request.getPrice() * 10000;
+                double totalPurchaseCost = request.getTotalPurchaseCost() * 10000; // 만원을 원으로 변환
                 double loan = request.getLoan() * 10000;
                 double i = request.getRate() / 100 / 12;
                 int n = request.getTerm() * 12;
@@ -67,8 +68,8 @@ public class CalculationService {
                 double yearlyCost = annualMaintenanceCost + annualRepayment;
 
                 double yearlyProfit = yearlyIncome - yearlyCost;
-                double yieldPercent = (price > 0) ? (yearlyProfit / price) * 100 : 0;
-                double grossYield = (price > 0) ? (yearlyIncome / price) * 100 : 0;
+                double yieldPercent = (totalPurchaseCost > 0) ? (yearlyProfit / totalPurchaseCost) * 100 : 0;
+                double grossYield = (totalPurchaseCost > 0) ? (yearlyIncome / totalPurchaseCost) * 100 : 0;
 
                 CalculationResult result = new CalculationResult(
                                 String.valueOf(Math.round(monthlyPayment)),
