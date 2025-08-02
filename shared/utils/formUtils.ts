@@ -5,34 +5,37 @@ import { safeParseFloat, safeParseInt } from './validation'
  * 폼 입력 데이터를 API 요청 형태로 변환
  */
 export function convertFormToRequest(form: FormInputData): CalculationRequest {
-    const price = safeParseFloat(form.price)
+    const totalPurchaseCost = calculateTotalPurchaseCost(form)
     const ownCapital = safeParseFloat(form.ownCapital)
     
     // 대출금액 계산 (만엔 단위)
-    const loan = Math.max(0, price - ownCapital)
+    const loan = Math.max(0, totalPurchaseCost - ownCapital)
     
-    // 연간 유지비 계산
-    const annualRent = safeParseFloat(form.rent) * 12
-    const managementFeeFromRate = annualRent * (safeParseFloat(form.managementFeeRate) / 100)
-    const managementFeeFromAmount = safeParseFloat(form.managementFee)
-    const repairCostFromRate = annualRent * (safeParseFloat(form.repairCostRate) / 100)
-    const repairCostFromAmount = safeParseFloat(form.repairCost)
-    const otherExpensesFromRate = annualRent * (safeParseFloat(form.otherExpensesRate) / 100)
-    const otherExpensesFromAmount = safeParseFloat(form.otherExpenses)
+    // 월세를 円 단위로 변환 (form.rent는 만円 단위)
+    const monthlyRentInYen = safeParseFloat(form.rent) * 10000 // 万円 → 円 변환
+    const annualRent = monthlyRentInYen * 12 // 円 단위
+    
+    const managementFeeFromRate = annualRent * (safeParseFloat(form.managementFeeRate) / 100) // 円 단위
+    const managementFeeFromAmount = safeParseFloat(form.managementFee) * 10000 // 万円 → 円 변환
+    const maintenanceFeeFromRate = annualRent * (safeParseFloat(form.maintenanceFeeRate) / 100) // 円 단위
+    const maintenanceFeeFromAmount = safeParseFloat(form.maintenanceFee) * 10000 // 万円 → 円 변환
+    const insuranceAmount = safeParseFloat(form.insurance) * 10000 // 万円 → 円 변환
+    const otherExpensesAmount = safeParseFloat(form.otherExpenses) * 10000 // 万円 → 円 변환
     
     const totalMaintenanceCost = 
-        safeParseFloat(form.propertyTax) + // 고정자산세
-        Math.max(managementFeeFromRate, managementFeeFromAmount) + // 관리비 (비율 또는 금액 중 큰 값)
-        Math.max(repairCostFromRate, repairCostFromAmount) + // 수선비
-        Math.max(otherExpensesFromRate, otherExpensesFromAmount) // 기타경비
+        safeParseFloat(form.propertyTax) * 10000 + // 고정자산세 (万円 → 円)
+        Math.max(managementFeeFromRate, managementFeeFromAmount) + // 관리비 (모두 円 단위)
+        Math.max(maintenanceFeeFromRate, maintenanceFeeFromAmount) + // 수선비 (모두 円 단위)
+        insuranceAmount + // 보험료 (円 단위)
+        otherExpensesAmount // 기타경비 (円 단위)
 
     return {
         name: form.name,
-        price: price,
+        price: safeParseFloat(form.price),
         loan: loan,
         rate: safeParseFloat(form.rate),
         term: safeParseInt(form.term),
-        rent: safeParseFloat(form.rent),
+        rent: monthlyRentInYen, // 円 단위로 변환된 월세
         occupancyRate: safeParseFloat(form.occupancyRate),
         expense: totalMaintenanceCost,
         startDate: form.startDate,
@@ -73,17 +76,19 @@ export function createDefaultFormData(): FormInputData {
         propertyTax: '0',
         managementFeeRate: '0',
         managementFee: '0',
-        repairCostRate: '0',
-        repairCost: '0',
-        otherExpensesRate: '0',
+        maintenanceFeeRate: '0',
+        maintenanceFee: '0',
+        insurance: '0',
         otherExpenses: '0',
 
         // 네 번째 블럭: 제비용 세부항목
-        initialCost1: '0',
-        initialCost2: '0',
-        initialCost3: '0',
-        initialCost4: '0',
-        initialCost5: '0'
+        brokerageFee: '0',
+        registrationFee: '0',
+        acquisitionTax: '0',
+        stampDuty: '0',
+        loanFee: '0',
+        surveyFee: '0',
+        miscellaneousFees: '0'
     }
 }
 
@@ -92,15 +97,17 @@ export function createDefaultFormData(): FormInputData {
  */
 export function calculateTotalPurchaseCost(form: FormInputData): number {
     const price = safeParseFloat(form.price)
-    const initialCosts = [
-        form.initialCost1,
-        form.initialCost2,
-        form.initialCost3,
-        form.initialCost4,
-        form.initialCost5
+    const acquisitionCosts = [
+        form.brokerageFee,
+        form.registrationFee,
+        form.acquisitionTax,
+        form.stampDuty,
+        form.loanFee,
+        form.surveyFee,
+        form.miscellaneousFees
     ].reduce((sum, cost) => sum + safeParseFloat(cost), 0)
     
-    return price + initialCosts
+    return price + acquisitionCosts
 }
 
 /**

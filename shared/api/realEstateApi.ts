@@ -64,7 +64,7 @@ async function apiRequest<T>(
 export async function calculateRealEstate(
     request: CalculationRequest
 ): Promise<CalculationResult> {
-    return apiRequest<CalculationResult>('/calculate', {
+    return apiRequest<CalculationResult>('/calculation/calculate', {
         method: 'POST',
         body: JSON.stringify(request),
     })
@@ -74,7 +74,7 @@ export async function calculateRealEstate(
  * 서버 상태 확인
  */
 export async function checkServerHealth(): Promise<{ status: string }> {
-    return apiRequest<{ status: string }>('/health')
+    return apiRequest<{ status: string }>('/calculation/health')
 }
 
 /**
