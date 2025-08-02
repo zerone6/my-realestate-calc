@@ -1,33 +1,45 @@
 # 부동산 수익 계산기
 
-부동산 투자 수익을 계산하는 웹 애플리케이션입니다. 클라이언트-서버 아키텍처로 구성되어 있으며, 계산 로직은 서버에서 처리합니다.
+부동산 투자 수익을 계산하는 웹 애플리케이션입니다. 재사용 가능한 공통 모듈과 UI가 분리된 아키텍처로 구성되어 있습니다.
 
 ## 프로젝트 구조
 
 ```
 my-realestate-calc/
-├── frontend/          # React + TypeScript + Vite 클라이언트
+├── shared/            # 공통 유틸리티 및 타입 정의
+│   ├── api/          # API 클라이언트
+│   ├── types/        # TypeScript 타입 정의
+│   ├── utils/        # 유틸리티 함수들
+│   ├── data/         # 공통 데이터
+│   └── package.json
+├── pcweb/            # PC 웹 클라이언트 (React + TypeScript + Vite)
 │   ├── src/
 │   │   ├── components/
-│   │   ├── types/
-│   │   └── App.tsx
+│   │   ├── App.tsx
+│   │   └── main.tsx
 │   └── package.json
-├── backend/           # Spring Boot 서버
+├── backend/          # Spring Boot 서버
 │   ├── src/main/java/com/realestate/calc/
 │   │   ├── controller/
 │   │   ├── service/
 │   │   └── dto/
 │   └── pom.xml
-├── .vscode/           # VS Code 설정
-│   ├── launch.json    # 디버깅 설정
-│   ├── tasks.json     # 태스크 설정
-│   └── settings.json  # 프로젝트 설정
+├── .vscode/          # VS Code 설정
+│   ├── launch.json   # 디버깅 설정
+│   ├── tasks.json    # 태스크 설정
+│   └── settings.json # 프로젝트 설정
 └── README.md
 ```
 
 ## 기술 스택
 
-### Frontend
+### Shared (공통 모듈)
+
+- TypeScript
+- 순수 함수형 유틸리티
+- API 클라이언트
+
+### PCWeb (PC 웹 클라이언트)
 
 - React 18
 - TypeScript
@@ -61,7 +73,7 @@ VS Code에서 다음 확장 프로그램들을 설치하세요:
 
 ## 실행 방법
 
-### 방법 1: VS Code 디버깅 (권장)
+### 방법 1: VS Code 태스크 사용 (권장)
 
 1. **VS Code에서 프로젝트 열기**
 
@@ -69,31 +81,27 @@ VS Code에서 다음 확장 프로그램들을 설치하세요:
    code .
    ```
 
-2. **백엔드 서버 디버깅 시작**
-
-   - `F5` 키를 누르거나
-   - `Ctrl+Shift+D` (또는 `Cmd+Shift+D`)로 디버깅 패널 열기
-   - "Debug Spring Boot Application" 선택 후 실행
-
-3. **프론트엔드 개발 서버 시작**
+2. **백엔드 서버 시작**
 
    - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
    - "Tasks: Run Task" 선택
-   - "Start Frontend Dev Server" 선택
+   - "Start Backend Server" 선택
 
-4. **또는 전체 스택 동시 시작/중지 (디버깅 없이 실행)**
+3. **PCWeb 클라이언트 시작**
 
    - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
    - "Tasks: Run Task" 선택
-   - "Start Full Stack Development" 선택 → 백엔드와 프론트엔드 서버가 동시에 실행됩니다.
-   - 서버를 모두 중단하려면 같은 방법으로 "Stop Full Stack Development"를 선택하세요.
+   - "Start PCWeb Dev Server" 선택
 
-   > **참고:**
-   >
-   > - "Start Full Stack Development"는 디버깅 없이 두 서버를 동시에 실행합니다.
-   > - "Stop Full Stack Development"는 두 서버를 모두 종료합니다.
-   > - 디버깅 모드에서 중지(Stop) 버튼을 누르면 백엔드만 중단되며, 프론트엔드는 별도로 중단해야 합니다.
-   > - 디버깅 없이 실행할 때는 반드시 "Stop Full Stack Development"로 서버를 종료하세요.
+4. **또는 전체 스택 동시 시작**
+
+   - `Ctrl+Shift+P` (또는 `Cmd+Shift+P`)로 명령 팔레트 열기
+   - "Tasks: Run Task" 선택
+   - "Start Full Stack Development" 선택
+
+5. **서버 중지**
+
+   - "Stop Full Stack Development" 선택하여 모든 서버 중지
 
 ### 방법 2: 터미널에서 실행
 
@@ -106,15 +114,36 @@ mvn spring-boot:run
 
 백엔드 서버는 `http://localhost:8080`에서 실행됩니다.
 
-#### 2. 프론트엔드 클라이언트 실행
+#### 2. PCWeb 클라이언트 실행
 
 ```bash
-cd frontend
-npm install
+cd pcweb
+npm install  # 최초 1회만
 npm run dev
 ```
 
-프론트엔드는 `http://localhost:5173` (또는 다른 사용 가능한 포트)에서 실행됩니다.
+PCWeb 클라이언트는 `http://localhost:5173`에서 실행됩니다.
+
+## 아키텍처 개요
+
+### Shared 모듈
+
+- **API 클라이언트**: 백엔드와의 통신 담당
+- **타입 정의**: TypeScript 인터페이스 및 타입
+- **유틸리티 함수**: 폼 검증, 데이터 변환, 월세 계산 등
+- **공통 데이터**: 필드 설명, 상수 등
+
+### PCWeb 클라이언트
+
+- React 기반 웹 인터페이스
+- Shared 모듈을 사용하여 비즈니스 로직 재사용
+- Tailwind CSS를 이용한 반응형 디자인
+
+### 백엔드 서버
+
+- Spring Boot REST API
+- 계산 로직 처리
+- 상환 스케줄 생성
 
 ## API 엔드포인트
 
@@ -132,8 +161,12 @@ npm run dev
   "rate": 2.5,
   "term": 35,
   "rent": 300000,
+  "occupancyRate": 95,
   "expense": 500000,
-  "startDate": "2024-01-01"
+  "startDate": "2024-01-01",
+  "rentFixedPeriod": 1,
+  "rentAdjustmentInterval": 1,
+  "rentAdjustmentRate": 0
 }
 ```
 
@@ -142,12 +175,12 @@ npm run dev
 ```json
 {
   "monthlyPayment": "142998",
-  "yearlyIncome": "3600000",
-  "yearlyCost": "1073120",
-  "yearlyProfit": "2526880",
-  "yieldPercent": "5.05",
-  "grossYield": "7.20",
-  "schedule": [...]
+  "yearlyIncome": "3420000",
+  "yearlyCost": "2215976",
+  "yearlyProfit": "1204024",
+  "yieldPercent": "2.4",
+  "grossYield": "6.8",
+  "repaymentSchedule": [...]
 }
 ```
 
