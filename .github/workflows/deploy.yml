@@ -24,12 +24,7 @@ jobs:
           host: mirainest.asuscomm.com
           username: zerone6
           key: ${{ secrets.DEPLOY_KEY }}
-          source: |
-            backend/**
-            pcweb/**
-            shared/**
-            nginx/**
-            docker-compose.yml
+          source: .
           target: ~/app/
           overwrite: true
           rm: true
