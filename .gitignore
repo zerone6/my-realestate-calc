@@ -1,3 +1,7 @@
+# Created by GitHub Copilot
+database/
+**/database/
+
 # === Java (Spring Boot) ===
 *.class
 *.jar

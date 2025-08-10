@@ -1,4 +1,4 @@
-import { CalculationRequest, CalculationResult } from '../types/RealEstateForm'
+import { CalculationRequest, CalculationResult, FormInputData } from '../types/RealEstateForm'
 
 // 환경에 따른 API 베이스 URL 설정
 function determineApiBaseUrl(): string {
@@ -94,4 +94,31 @@ export async function checkServerHealth(): Promise<{ status: string }> {
  */
 export function getApiBaseUrl(): string {
     return API_BASE_URL
+}
+
+/**
+ * 사용자 데이터 저장
+ */
+export async function saveData(userId: string, data: { name: string; form: FormInputData }[]): Promise<void> {
+    return apiRequest<void>(`/storage/save?userId=${userId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+/**
+ * 사용자 데이터 불러오기
+ */
+export async function loadData(userId: string): Promise<{ name: string; form: FormInputData }[]> {
+    return apiRequest<{ name: string; form: FormInputData }[]>(`/storage/load?userId=${userId}`);
+}
+
+/**
+ * 회원가입 (간단 저장)
+ */
+export async function signUp(id: string, password: string): Promise<void> {
+    await apiRequest<void>(`/auth/signup`, {
+        method: 'POST',
+        body: JSON.stringify({ id, password })
+    });
 }
