@@ -9,6 +9,7 @@ function CalculatorApp() {
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [savedItems, setSavedItems] = useState<{ name: string; form: FormInputData }[]>([])
   const [activeForm, setActiveForm] = useState<FormInputData | null>(null)
+  const [calculatedForm, setCalculatedForm] = useState<FormInputData | null>(null) // 계산에 사용된 폼 데이터 추적
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false) // 결과 표시 상태
@@ -42,6 +43,7 @@ function CalculatorApp() {
       const request = convertFormToRequest(form)
       const calculationResult = await calculateRealEstate(request)
       setResult(calculationResult)
+      setCalculatedForm(form) // 계산에 사용된 폼 데이터 저장
       setShowResult(true) // 계산 완료 후 결과 표시
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다')
@@ -184,6 +186,7 @@ function CalculatorApp() {
                   yieldPercent={result.yieldPercent}
                   grossYield={result.grossYield}
                   schedule={(result as any).schedule || result.repaymentSchedule || []}
+                  formData={calculatedForm || undefined}
                 />
               </div>
             )}
