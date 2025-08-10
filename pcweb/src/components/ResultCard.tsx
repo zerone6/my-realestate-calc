@@ -361,8 +361,8 @@ export function ResultCard({
   const tabs = [
     { id: 'summary', name: '요약' },
     { id: 'schedule', name: '상환 일정표' },
-    { id: 'tax', name: '세금 계산' },
-    { id: 'other', name: '기타' }
+    { id: 'tax', name: '연간 CF' },
+    { id: 'other', name: '매각 계획' }
   ];
 
   // 요약 탭 렌더링
