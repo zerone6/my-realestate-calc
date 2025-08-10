@@ -85,6 +85,7 @@ export interface CalculationResult {
     yearlyProfit: string
     yieldPercent: string
     grossYield: string
+    equityYield: string        // 자기자본 대비 수익률
     repaymentSchedule: RepaymentSchedule[]
 }
 
@@ -103,6 +104,24 @@ export interface TaxCalculation {
     year: number
     annualDepreciation: number  // 연간 감가상각비
     remainingValue: number      // 부동산 잔존가치
+    
+    // 수입
+    annualRent: number          // 연간 임대료
+    
+    // 비용
+    loanInterest: number        // 대출 이자
+    propertyTax: number         // 고정자산세
+    managementFee: number       // 관리비
+    insurance: number           // 보험료
+    otherExpenses: number       // 기타 경비
+    acquisitionCosts?: number   // 제비용 (첫해만)
+    
+    // 세금 계산
+    taxableIncome: number       // 과세소득
+    corporateTax: number        // 법인세
+    localTax: number           // 지방세 (법인주민세 + 법인사업세)
+    totalTax: number           // 총 세금
+    netCashFlow: number        // 최종 캐시플로우
 }
 
 // API request types
@@ -110,10 +129,12 @@ export interface CalculationRequest {
     name: string
     price: number
     totalPurchaseCost: number
+    ownCapital: number         // 자기자본
     loan: number
     rate: number
     term: number
     rent: number
+    grossYield?: number         // 사용자가 입력한 표면 이익률
     occupancyRate: number
     expense: number
     startDate: string

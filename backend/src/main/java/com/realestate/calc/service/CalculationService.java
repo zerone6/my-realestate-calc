@@ -23,6 +23,7 @@ public class CalculationService {
                 System.out.println("  rent: " + request.getRent());
                 System.out.println("  expense: " + request.getExpense());
                 System.out.println("  occupancyRate: " + request.getOccupancyRate());
+                System.out.println("  ownCapital: " + request.getOwnCapital());
 
                 // 클라이언트에서 서버로 이동한 계산 로직
                 double totalPurchaseCost = request.getTotalPurchaseCost() * 10000; // 만원을 원으로 변환
@@ -70,7 +71,24 @@ public class CalculationService {
 
                 double yearlyProfit = yearlyIncome - yearlyCost;
                 double yieldPercent = (totalPurchaseCost > 0) ? (yearlyProfit / totalPurchaseCost) * 100 : 0;
-                double grossYield = (purchasePrice > 0) ? (yearlyIncome / purchasePrice) * 100 : 0; // 표면 이익율은 매입가만 기준
+
+                // 표면 이익률 계산: 항상 매입가 대비 연간임대료로 계산 (자기자금 무관)
+                double grossYield = (purchasePrice > 0) ? (yearlyIncome / purchasePrice) * 100 : 0;
+
+                // 디버깅 정보 추가
+                System.out.println("DEBUG - YIELD CALCULATIONS:");
+                System.out.println("  yearlyIncome: " + yearlyIncome);
+                System.out.println("  purchasePrice: " + purchasePrice);
+                System.out.println("  totalPurchaseCost: " + totalPurchaseCost);
+                System.out.println("  grossYield calculation: (" + yearlyIncome + " / " + purchasePrice + ") * 100 = "
+                                + grossYield);
+                System.out.println("  yieldPercent calculation: (" + yearlyProfit + " / " + totalPurchaseCost
+                                + ") * 100 = " + yieldPercent);
+
+                // 자기자본 대비 수익률 계산: 연간순이익 / 자기자본
+                double ownCapital = (request.getOwnCapital() != null) ? request.getOwnCapital() * 10000 : 0; // 만원을 원으로
+                                                                                                             // 변환
+                double equityYield = (ownCapital > 0) ? (yearlyProfit / ownCapital) * 100 : 0;
 
                 CalculationResult result = new CalculationResult(
                                 String.valueOf(Math.round(monthlyPayment)),
@@ -79,10 +97,12 @@ public class CalculationService {
                                 String.valueOf(Math.round(yearlyProfit)),
                                 String.format("%.1f", yieldPercent),
                                 String.format("%.1f", grossYield),
+                                String.format("%.1f", equityYield),
                                 repaymentSchedule);
 
                 result.setGrossYield(String.format("%.1f", grossYield));
                 result.setYieldPercent(String.format("%.1f", yieldPercent));
+                result.setEquityYield(String.format("%.1f", equityYield));
 
                 return result;
         }
@@ -100,12 +120,17 @@ public class CalculationService {
                 double monthlyMaintenanceExpense = annualMaintenanceCost / 12.0;
                 double occupancyRateDecimal = occupancyRate / 100.0;
 
+                // startDate가 null인 경우 현재 날짜를 사용
+                LocalDate startLocalDate = (startDate != null && !startDate.isEmpty())
+                                ? LocalDate.parse(startDate)
+                                : LocalDate.now();
+
                 for (int j = 1; j <= n; j++) {
                         double interest = remaining * monthlyInterestRate;
                         double principal = monthlyPayment - interest;
                         remaining -= principal;
 
-                        LocalDate date = LocalDate.parse(startDate).plusMonths(j - 1);
+                        LocalDate date = startLocalDate.plusMonths((long) j - 1);
                         String dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
                         CalculationResult.RepaymentSchedule scheduleItem = new CalculationResult.RepaymentSchedule(

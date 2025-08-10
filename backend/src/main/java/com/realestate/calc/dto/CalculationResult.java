@@ -10,13 +10,14 @@ public class CalculationResult {
     private String yearlyProfit;
     private String yieldPercent;
     private String grossYield;
+    private String equityYield; // 자기자본 대비 수익률
     private List<RepaymentSchedule> repaymentSchedule; // schedule → repaymentSchedule 변경
 
     public CalculationResult() {
     }
 
     public CalculationResult(String monthlyPayment, String yearlyIncome, String yearlyCost,
-            String yearlyProfit, String yieldPercent, String grossYield,
+            String yearlyProfit, String yieldPercent, String grossYield, String equityYield,
             List<RepaymentSchedule> repaymentSchedule) {
         this.monthlyPayment = monthlyPayment;
         this.yearlyIncome = yearlyIncome;
@@ -24,6 +25,7 @@ public class CalculationResult {
         this.yearlyProfit = yearlyProfit;
         this.yieldPercent = yieldPercent;
         this.grossYield = grossYield;
+        this.equityYield = equityYield;
         this.repaymentSchedule = repaymentSchedule;
     }
 
@@ -74,6 +76,14 @@ public class CalculationResult {
 
     public void setGrossYield(String grossYield) {
         this.grossYield = grossYield;
+    }
+
+    public String getEquityYield() {
+        return equityYield;
+    }
+
+    public void setEquityYield(String equityYield) {
+        this.equityYield = equityYield;
     }
 
     public List<RepaymentSchedule> getRepaymentSchedule() {

@@ -22,6 +22,8 @@ public class CalculationController {
             CalculationResult result = calculationService.calculate(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            System.err.println("ERROR - Exception during calculation: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
