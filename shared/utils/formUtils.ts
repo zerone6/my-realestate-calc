@@ -6,10 +6,15 @@ import { safeParseFloat, safeParseInt } from './validation'
  */
 export function convertFormToRequest(form: FormInputData): CalculationRequest {
     const totalPurchaseCost = calculateTotalPurchaseCost(form)
-    const ownCapital = safeParseFloat(form.ownCapital)
+    let ownCapital = safeParseFloat(form.ownCapital)
+    
+    // 자기자본이 0이거나 입력되지 않은 경우, 총 매입비용의 10%를 기본값으로 설정
+    if (ownCapital <= 0) {
+        ownCapital = totalPurchaseCost * 0.1 // 10% 자기자본 (더 현실적)
+    }
     
     // 대출금액 계산 (만엔 단위)
-    const loan = Math.max(0, totalPurchaseCost - ownCapital)
+    const loan = Math.max(0.1, totalPurchaseCost - ownCapital) // 최소 0.1로 설정하여 validation 통과
     
     // 월세를 円 단위로 변환 (form.rent는 만円 단위)
     const monthlyRentInYen = safeParseFloat(form.rent) * 10000 // 万円 → 円 변환
@@ -33,10 +38,12 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
         name: form.name,
         price: safeParseFloat(form.price),
         totalPurchaseCost: totalPurchaseCost,
+        ownCapital: ownCapital,
         loan: loan,
         rate: safeParseFloat(form.rate),
         term: safeParseInt(form.term),
         rent: monthlyRentInYen, // 円 단위로 변환된 월세
+        grossYield: safeParseFloat(form.grossYield), // 사용자가 입력한 표면 이익률
         occupancyRate: safeParseFloat(form.occupancyRate),
         expense: totalMaintenanceCost,
         startDate: form.startDate,
@@ -53,7 +60,7 @@ export function createDefaultFormData(): FormInputData {
     return {
         // 첫 번째 블럭: 물건 정보 (README 기본값 적용)
         name: '네리마',
-        price: '', // 매입가격은 빈 값으로 시작
+        price: '6000', // 기본 매입가격 6000만원
         grossYield: '6.0',
         structure: '목조',
         buildingAge: '22',

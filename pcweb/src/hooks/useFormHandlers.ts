@@ -22,20 +22,23 @@ const updateGrossYieldCalculations = (newForm: FormInputData, name: string, valu
   if (name === 'rent' || (name.startsWith('initialCost') && !name.endsWith('Name'))) {
     const rent = parseFloat(newForm.rent) || 0;
     if (purchasePrice > 0 && rent > 0) {
-      const newGrossYield = (rent * 12 / purchasePrice * 100).toFixed(1);
-      return { ...newForm, grossYield: newGrossYield };
+      const newGrossYield = (rent * 12 / purchasePrice * 100);
+      // 소수점 한 자리까지만 표시하되, 정확한 값으로 계산
+      return { ...newForm, grossYield: newGrossYield.toFixed(1) };
     }
   } else if (name === 'price') {
     const grossYield = parseFloat(newForm.grossYield) || 6.0;
     if (purchasePrice > 0) {
-      const newRent = (purchasePrice * grossYield / 100 / 12).toFixed(1);
-      return { ...newForm, rent: newRent };
+      const newRent = (purchasePrice * grossYield / 100 / 12);
+      // 더 정확한 월세 계산을 위해 소수점 2자리까지 유지
+      return { ...newForm, rent: newRent.toFixed(2) };
     }
   } else if (name === 'grossYield') {
     const grossYield = parseFloat(value) || 0;
     if (purchasePrice > 0) {
-      const newRent = (purchasePrice * grossYield / 100 / 12).toFixed(1);
-      return { ...newForm, rent: newRent };
+      const newRent = (purchasePrice * grossYield / 100 / 12);
+      // 더 정확한 월세 계산을 위해 소수점 2자리까지 유지
+      return { ...newForm, rent: newRent.toFixed(2) };
     }
   }
 

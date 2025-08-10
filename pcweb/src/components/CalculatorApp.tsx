@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import MultiStepInputForm from './MultiStepInputForm'
-import ResultCard from './ResultCard'
+import { ResultCard } from './ResultCard'
 import { CalculationResult, FormInputData } from '../../../shared/types/RealEstateForm'
 import { calculateRealEstate } from '../../../shared/api/realEstateApi'
 import { convertFormToRequest } from '../../../shared/utils/formUtils'
@@ -176,7 +176,7 @@ function CalculatorApp() {
               </div>
             )}
 
-            {showResult && result && (
+    {showResult && result && calculatedForm && (
               <div id="calculation-result" className="mt-6">
                 <ResultCard
                   monthlyPayment={result.monthlyPayment}
@@ -185,8 +185,11 @@ function CalculatorApp() {
                   yearlyProfit={result.yearlyProfit}
                   yieldPercent={result.yieldPercent}
                   grossYield={result.grossYield}
+                  equityYield={(result as any).equityYield || '0.0'}
                   schedule={(result as any).schedule || result.repaymentSchedule || []}
-                  formData={calculatedForm || undefined}
+                  taxCalculation={(result as any).taxCalculation || {}}
+      formData={calculatedForm}
+                  onClose={() => setResult(null)}
                 />
               </div>
             )}

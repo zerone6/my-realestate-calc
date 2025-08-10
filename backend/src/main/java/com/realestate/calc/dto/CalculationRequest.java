@@ -3,11 +3,12 @@ package com.realestate.calc.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 public class CalculationRequest {
 
-    @NotNull(message = "물건 이름은 필수입니다")
-    private String name;
+    // 물건 이름을 optional로 변경하고 기본값 설정
+    private String name = "부동산 계산";
 
     @NotNull(message = "매입가는 필수입니다")
     @Positive(message = "매입가는 양수여야 합니다")
@@ -16,8 +17,11 @@ public class CalculationRequest {
     // 총 매입 비용 (매입가 + 제비용)
     private Double totalPurchaseCost;
 
+    // 자기자본
+    private Double ownCapital;
+
     @NotNull(message = "대출 금액은 필수입니다")
-    @Positive(message = "대출 금액은 양수여야 합니다")
+    @PositiveOrZero(message = "대출 금액은 0 이상이어야 합니다")
     private Double loan;
 
     @NotNull(message = "금리는 필수입니다")
@@ -31,6 +35,9 @@ public class CalculationRequest {
     @NotNull(message = "월세 수익은 필수입니다")
     @Positive(message = "월세 수익은 양수여야 합니다")
     private Double rent;
+
+    // 사용자가 입력한 표면 이익률
+    private Double grossYield;
 
     @NotNull(message = "연간 유지비는 필수입니다")
     private Double expense;
@@ -68,6 +75,14 @@ public class CalculationRequest {
         this.totalPurchaseCost = totalPurchaseCost;
     }
 
+    public Double getOwnCapital() {
+        return ownCapital;
+    }
+
+    public void setOwnCapital(Double ownCapital) {
+        this.ownCapital = ownCapital;
+    }
+
     public Double getLoan() {
         return loan;
     }
@@ -98,6 +113,14 @@ public class CalculationRequest {
 
     public void setRent(Double rent) {
         this.rent = rent;
+    }
+
+    public Double getGrossYield() {
+        return grossYield;
+    }
+
+    public void setGrossYield(Double grossYield) {
+        this.grossYield = grossYield;
     }
 
     public Double getExpense() {

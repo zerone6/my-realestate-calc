@@ -1,30 +1,37 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { RepaymentSchedule, TaxCalculation, FormInputData } from '../../../shared/types/RealEstateForm';
 
-interface ResultProps {
+interface CalculationResultProps {
   monthlyPayment: string;
   yearlyIncome: string;
   yearlyCost: string;
   yearlyProfit: string;
   yieldPercent: string;
   grossYield: string;
+  equityYield: string;
   schedule: RepaymentSchedule[];
-  formData?: FormInputData; // 세금 계산을 위한 원본 폼 데이터
+  taxCalculation: TaxCalculation;
+  formData: FormInputData; // 추가된 prop
+  onClose: () => void;
 }
 
-export default function ResultCard({
+export function ResultCard({
   monthlyPayment,
   yearlyIncome,
   yearlyCost,
   yearlyProfit,
   yieldPercent,
   grossYield,
+  equityYield,
   schedule,
-  formData
-}: Readonly<ResultProps>) {
+  taxCalculation,
+  formData, // 추가된 prop
+  onClose
+}: Readonly<CalculationResultProps>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRow, setSelectedRow] = useState<number | null>(null); // 툴팁 표시용
   const [activeTab, setActiveTab] = useState('summary'); // 탭 상태 관리
+  const [selectedTaxYear, setSelectedTaxYear] = useState<number | null>(null); // 세금 계산 상세 보기용
   const itemsPerPage = 12;
 
   // 구조별 내용연수 매핑
@@ -45,17 +52,84 @@ export default function ResultCard({
     const lifespan = STRUCTURE_LIFESPANS[structure] || 22;
     const loanTerm = parseFloat(formData.term) || 35;
     
+    // 연간 기본 비용들
+    const annualPropertyTax = parseFloat(formData.propertyTax) || 0;
+    const annualManagementFee = parseFloat(formData.managementFee) * 12 || 0;
+    const annualInsurance = parseFloat(formData.insurance) || 0;
+    const annualOtherExpenses = parseFloat(formData.otherExpenses) || 0;
+    
+    // 제비용 (첫해만)
+    const acquisitionCosts = [
+      parseFloat(formData.brokerageFee) || 0,
+      parseFloat(formData.registrationFee) || 0,
+      parseFloat(formData.acquisitionTax) || 0,
+      parseFloat(formData.stampDuty) || 0,
+      parseFloat(formData.loanFee) || 0,
+      parseFloat(formData.surveyFee) || 0,
+      parseFloat(formData.miscellaneousFees) || 0
+    ].reduce((sum, cost) => sum + cost, 0) * 10000; // 만엔 -> 엔 변환
+    
     const annualDepreciation = buildingPrice * 10000 / lifespan; // 연간 감가상각비 (엔 단위)
     const totalYears = Math.min(loanTerm, lifespan); // 대출기간과 내용연수 중 작은 값
     
     const taxCalculations: TaxCalculation[] = [];
     
     for (let year = 1; year <= totalYears; year++) {
+      // 해당 연도 스케줄 데이터 가져오기
+      const yearStartIndex = (year - 1) * 12;
+      const yearEndIndex = year * 12;
+      const yearSchedule = schedule.slice(yearStartIndex, yearEndIndex);
+      
+      if (yearSchedule.length === 0) continue;
+      
+      // 연간 수입 및 비용 계산
+      const annualRent = yearSchedule.reduce((sum, month) => sum + month.rent, 0);
+      const annualInterest = yearSchedule.reduce((sum, month) => sum + month.interest, 0);
+      
+      // 부동산 잔존가치
       const remainingValue = Math.max(0, buildingPrice * 10000 - (annualDepreciation * year));
+      
+      // 과세소득 계산
+      let totalExpenses = annualInterest + annualPropertyTax * 10000 + annualDepreciation + 
+                         annualManagementFee * 10000 + annualInsurance * 10000 + annualOtherExpenses * 10000;
+      
+      // 첫해는 제비용 포함
+      if (year === 1) {
+        totalExpenses += acquisitionCosts;
+      }
+      
+      const taxableIncome = Math.max(0, annualRent - totalExpenses);
+      
+      // 법인세 계산 (800만엔 이하 15%, 초과분 23.2%)
+      let corporateTax = 0;
+      if (taxableIncome <= 8000000) { // 800만엔 이하
+        corporateTax = taxableIncome * 0.15;
+      } else { // 800만엔 초과
+        corporateTax = 8000000 * 0.15 + (taxableIncome - 8000000) * 0.232;
+      }
+      
+      // 지방세 계산 (법인주민세 7% + 법인사업세 약 5%)
+      const localTax = corporateTax * 0.07 + taxableIncome * 0.05;
+      
+      const totalTax = corporateTax + localTax;
+      const netCashFlow = annualRent - totalExpenses - totalTax;
+      
       taxCalculations.push({
         year,
         annualDepreciation,
-        remainingValue
+        remainingValue,
+        annualRent,
+        loanInterest: annualInterest,
+        propertyTax: annualPropertyTax * 10000,
+        managementFee: annualManagementFee * 10000,
+        insurance: annualInsurance * 10000,
+        otherExpenses: annualOtherExpenses * 10000,
+        acquisitionCosts: year === 1 ? acquisitionCosts : undefined,
+        taxableIncome,
+        corporateTax,
+        localTax,
+        totalTax,
+        netCashFlow
       });
     }
     
@@ -108,6 +182,7 @@ export default function ResultCard({
         <div>연간 순이익: <strong>{formatCurrency(yearlyProfit)}</strong></div>
         <div>표면 수익률 (GRY): <strong>{grossYield} %</strong></div>
         <div>예상 수익률 (NRY): <strong>{yieldPercent} %</strong></div>
+        <div>자기자본 수익률: <strong>{equityYield} %</strong></div>
       </div>
     </div>
   );
@@ -292,6 +367,7 @@ export default function ResultCard({
             <p className="text-xs text-gray-500 mt-1">
               구조: {formData.structure}, 내용연수: {formData.buildingAge}년, 건물가격: {formatCurrency(parseFloat(formData.buildingPrice) * 10000)}
             </p>
+            <p className="text-xs text-gray-500">연차를 클릭하면 상세 내역을 볼 수 있습니다</p>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -299,26 +375,153 @@ export default function ResultCard({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연차</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간 감가상각비</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">부동산 잔존가치</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간수입</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지출계</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">과세소득</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">법인세</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지방세</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총세금</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">최종CF</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {taxCalculations.map((tax) => (
-                <tr key={tax.year} className="hover:bg-gray-50">
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{tax.year}년차</td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                    <span className="lg:hidden">{formatCurrency(tax.annualDepreciation, true)}</span>
-                    <span className="hidden lg:inline">{formatCurrency(tax.annualDepreciation)}</span>
-                  </td>
-                  <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                    <span className="lg:hidden">{formatCurrency(tax.remainingValue, true)}</span>
-                    <span className="hidden lg:inline">{formatCurrency(tax.remainingValue)}</span>
-                  </td>
-                </tr>
-              ))}
+              {taxCalculations.map((tax) => {
+                const totalExpenses = tax.loanInterest + tax.propertyTax + tax.annualDepreciation + 
+                                    tax.managementFee + tax.insurance + tax.otherExpenses + 
+                                    (tax.acquisitionCosts || 0);
+                const isExpanded = selectedTaxYear === tax.year;
+                
+                return (
+                  <Fragment key={tax.year}>
+                    <tr 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setSelectedTaxYear(isExpanded ? null : tax.year)}
+                    >
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm font-medium text-blue-600">
+                        {tax.year}년차 {isExpanded ? '▼' : '▶'}
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(tax.annualRent, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(tax.annualRent)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(totalExpenses, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(totalExpenses)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(tax.taxableIncome, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(tax.taxableIncome)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(tax.corporateTax, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(tax.corporateTax)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(tax.localTax, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(tax.localTax)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm font-medium">
+                        <span className="lg:hidden">{formatCurrency(tax.totalTax, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(tax.totalTax)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm font-bold text-blue-600">
+                        <span className="lg:hidden">{formatCurrency(tax.netCashFlow, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(tax.netCashFlow)}</span>
+                      </td>
+                    </tr>
+                    
+                    {/* 상세 내역 행 */}
+                    {isExpanded && (
+                      <tr className="bg-blue-50">
+                        <td colSpan={8} className="px-2 lg:px-3 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs lg:text-sm">
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-gray-800">지출 상세</h4>
+                              <div className="space-y-1 text-gray-600">
+                                <div className="flex justify-between">
+                                  <span>대출이자:</span>
+                                  <span>{formatCurrency(tax.loanInterest)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>고정자산세:</span>
+                                  <span>{formatCurrency(tax.propertyTax)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>감가상각:</span>
+                                  <span>{formatCurrency(tax.annualDepreciation)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>관리비:</span>
+                                  <span>{formatCurrency(tax.managementFee)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-gray-800">&nbsp;</h4>
+                              <div className="space-y-1 text-gray-600">
+                                <div className="flex justify-between">
+                                  <span>보험료:</span>
+                                  <span>{formatCurrency(tax.insurance)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>기타경비:</span>
+                                  <span>{formatCurrency(tax.otherExpenses)}</span>
+                                </div>
+                                {tax.acquisitionCosts && (
+                                  <div className="flex justify-between">
+                                    <span>제비용:</span>
+                                    <span>{formatCurrency(tax.acquisitionCosts)}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between font-medium border-t pt-1">
+                                  <span>지출 합계:</span>
+                                  <span>{formatCurrency(totalExpenses)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-gray-800">기타 정보</h4>
+                              <div className="space-y-1 text-gray-600">
+                                <div className="flex justify-between">
+                                  <span>부동산 잔존가치:</span>
+                                  <span>{formatCurrency(tax.remainingValue)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>법인세율:</span>
+                                  <span>{tax.taxableIncome <= 8000000 ? '15%' : '15%/23.2%'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>지방세율:</span>
+                                  <span>주민세 7% + 사업세 5%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3 text-xs text-gray-500">
+                            다시 클릭하면 상세 내역이 접힙니다
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+        
+        {/* 세금 계산 설명 */}
+        <div className="mt-4 p-4 bg-gray-50 rounded-lg text-xs lg:text-sm">
+          <h4 className="font-medium text-gray-800 mb-2">세금 계산 기준</h4>
+          <ul className="space-y-1 text-gray-600">
+            <li>• 법인세율: 소득 800만엔 이하 15%, 800만엔 초과 23.2%</li>
+            <li>• 지방세: 법인주민세(법인세의 7%) + 법인사업세(소득의 약 5%)</li>
+            <li>• 제비용은 첫해에만 포함됩니다</li>
+            <li>• 수선비는 적립금 형태로 세금 계산에서 제외됩니다</li>
+            <li>• 최종 캐시플로우 = 연간수입 - 총비용 - 총세금</li>
+          </ul>
         </div>
       </div>
     );
@@ -359,6 +562,7 @@ export default function ResultCard({
               onClick={() => {
                 setActiveTab(tab.id);
                 setSelectedRow(null); // 탭 변경시 툴팁 닫기
+                setSelectedTaxYear(null); // 탭 변경시 세금 계산 상세보기 닫기
                 if (tab.id !== 'schedule') {
                   setCurrentPage(1); // 상환 일정표가 아닌 경우 페이지 초기화
                 }
