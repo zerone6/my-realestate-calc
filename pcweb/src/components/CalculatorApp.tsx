@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import MultiStepInputForm from './MultiStepInputForm'
+import AuthButtons from './AuthButtons'
 import { ResultCard } from './ResultCard'
 import { CalculationResult, FormInputData } from '../../../shared/types/RealEstateForm'
-import { calculateRealEstate } from '../../../shared/api/realEstateApi'
+import { calculateRealEstate, loadData, saveData } from '../../../shared/api/realEstateApi'
 import { convertFormToRequest } from '../../../shared/utils/formUtils'
 
 function CalculatorApp() {
@@ -15,6 +16,7 @@ function CalculatorApp() {
   const [showResult, setShowResult] = useState(false) // 결과 표시 상태
   const [activeTab, setActiveTab] = useState(0) // 현재 활성 탭
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false) // 모바일 사이드바 상태
+  const [userId, setUserId] = useState<string | null>(null) // 로그인 사용자 ID
 
   // 탭 정보
   const tabs = [
@@ -24,16 +26,53 @@ function CalculatorApp() {
     { id: 3, name: '시세 동향', icon: '�' }
   ]
 
+  // 로그인/로그아웃 이벤트 처리: 로그인 시 유저 데이터 로드, 로그아웃 시 저장 후 화면 초기화
   useEffect(() => {
-    const saved = localStorage.getItem('realestate-items')
-    if (saved) {
-      setSavedItems(JSON.parse(saved))
-    }
-  }, [])
+    const handleAuthChange = async (e: Event) => {
+      const custom = e as CustomEvent<{ loggedIn: boolean; userId: string | null }>
+      const detail = custom.detail
+      if (!detail) return
 
-  useEffect(() => {
-    localStorage.setItem('realestate-items', JSON.stringify(savedItems))
-  }, [savedItems])
+      if (detail.loggedIn && detail.userId) {
+        setUserId(detail.userId)
+        try {
+          const data = await loadData(detail.userId)
+          setSavedItems(data)
+        } catch (err) {
+          console.error('Failed to load user data:', err)
+          setSavedItems([])
+        }
+        // 화면 초기화
+        setActiveForm(null)
+        setResult(null)
+        setShowResult(false)
+        // 폼 로컬 저장소도 초기화
+        try {
+          localStorage.removeItem('realEstateForm')
+          localStorage.removeItem('realEstateFormStep')
+        } catch {}
+      } else {
+        // 로그아웃: 현재 목록 저장 후 전체 초기화
+        if (userId) {
+          try { await saveData(userId, savedItems) } catch (err) { console.warn('Save on logout failed:', err) }
+        }
+        setUserId(null)
+        setSavedItems([])
+        setActiveForm(null)
+        setResult(null)
+        setShowResult(false)
+        // 폼 로컬 저장소 초기화
+        try {
+          localStorage.removeItem('realEstateForm')
+          localStorage.removeItem('realEstateFormStep')
+        } catch {}
+      }
+    }
+
+    window.addEventListener('authChange' as any, handleAuthChange as EventListener)
+    return () => window.removeEventListener('authChange' as any, handleAuthChange as EventListener)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, savedItems])
 
   const handleCalculate = async (form: FormInputData) => {
     setLoading(true)
@@ -63,7 +102,7 @@ function CalculatorApp() {
     }, 100)
   }
 
-  const handleAutoSave = (form: FormInputData) => {
+  const handleAutoSave = async (form: FormInputData) => {
     if (!form.name || form.name.trim() === '') {
       return // 물건 이름이 없으면 저장하지 않음
     }
@@ -83,6 +122,24 @@ function CalculatorApp() {
 
       return updated
     })
+
+    // 백엔드에도 즉시 저장 (로그인 사용자에 한해)
+    try {
+      if (userId) {
+        const next = (() => {
+          const existingIndex = savedItems.findIndex(item => item.name === form.name)
+          if (existingIndex !== -1) {
+            const clone = [...savedItems]
+            clone[existingIndex] = { name: form.name, form }
+            return clone
+          }
+          return [...savedItems, { name: form.name, form }]
+        })()
+        await saveData(userId, next)
+      }
+    } catch (err) {
+      console.warn('Auto save failed:', err)
+    }
   }
 
   const handleTabChange = (tabId: number) => {
@@ -100,12 +157,13 @@ function CalculatorApp() {
     handleCalculate(form)
   }
 
-  const handleDelete = (name: string) => {
+  const handleDelete = async (name: string) => {
     if (!confirm(`'${name}' 항목을 삭제하시겠습니까?`)) return
 
     const updated = savedItems.filter(item => item.name !== name)
     setSavedItems(updated)
-    localStorage.setItem("savedItems", JSON.stringify(updated))
+    // 백엔드에도 반영
+    try { if (userId) await saveData(userId, updated) } catch (err) { console.warn('Delete save failed:', err) }
   }
 
   // 임시 탭 컴포넌트들
@@ -210,6 +268,12 @@ function CalculatorApp() {
     <div className="min-h-screen bg-gray-100 flex flex-col lg:flex-row">
       {/* 좌측 사이드바 - 부동산 물건 전체 정보 저장 영역 */}
       <aside className="w-full lg:w-64 bg-white shadow-md lg:h-screen overflow-y-auto">
+        {/* 고정 제목 */}
+        <div className="hidden lg:block px-4 pt-3 pb-2">
+          <div className="text-base font-bold text-gray-800 leading-none">My Real Estate</div>
+        </div>
+        {/* 보이지 않는 구분선 역할 (테이블/그리드 대체) */}
+        <div className="hidden lg:block h-2" aria-hidden="true" />
         {/* 모바일에서는 접히는 헤더 */}
         <div className="lg:hidden">
           <button
@@ -263,9 +327,9 @@ function CalculatorApp() {
           </div>
         </div>
 
-        {/* 데스크톱에서는 기존 형태 유지 */}
-        <div className="hidden lg:block p-4">
-          <h2 className="text-lg lg:text-xl font-bold mb-4">📂 저장된 부동산</h2>
+        {/* 데스크톱 리스트 */}
+        <div className="hidden lg:block px-4 pb-4">
+          <h2 className="text-sm font-semibold mb-2 text-gray-700">📂 저장된 부동산</h2>
           {savedItems.length === 0 ? (
             <p className="text-sm text-gray-500">저장된 부동산이 없습니다</p>
           ) : (
@@ -294,10 +358,11 @@ function CalculatorApp() {
 
       {/* 우측 컨텐츠 영역 */}
       <div className="flex-1 flex flex-col">
-        {/* 탭바 */}
+        {/* 탭바 + 우측 인증 버튼 */}
         <div className="bg-white shadow-md border-b">
           <div className="px-4">
-            <div className="flex space-x-1">
+            <div className="h-12 flex items-center justify-between">
+              <div className="flex space-x-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -312,12 +377,17 @@ function CalculatorApp() {
                   <span>{tab.name}</span>
                 </button>
               ))}
+              </div>
+              <div className="hidden lg:block">
+                {/* 동일 행의 우측 인증 버튼 */}
+                <AuthButtons />
+              </div>
             </div>
           </div>
         </div>
 
         {/* 탭 콘텐츠 */}
-        <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
+  <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
           {renderTabContent()}
         </main>
       </div>

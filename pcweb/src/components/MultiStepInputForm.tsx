@@ -145,12 +145,17 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
 
   const handleInputChange = createInputChangeHandler(form, setForm);
 
-  // 폼 데이터가 변경될 때마다 localStorage에 저장
+  // 폼 데이터가 변경될 때마다 localStorage 저장 + 디바운스 자동 저장 트리거 (이름이 있을 때)
   useEffect(() => {
     try {
       localStorage.setItem('realEstateForm', JSON.stringify(form))
     } catch (error) {
       console.warn('Failed to save form data to localStorage:', error)
+    }
+    // 이름이 입력된 경우, 디바운스로 자동 저장 트리거
+    if ((form.name || '').trim() !== '') {
+      const t = setTimeout(() => onAutoSave(form), 500)
+      return () => clearTimeout(t)
     }
   }, [form])
 
