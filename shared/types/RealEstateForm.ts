@@ -99,6 +99,12 @@ export interface RepaymentSchedule {
     cashFlow?: number
 }
 
+export interface TaxCalculation {
+    year: number
+    annualDepreciation: number  // 연간 감가상각비
+    remainingValue: number      // 부동산 잔존가치
+}
+
 // API request types
 export interface CalculationRequest {
     name: string
