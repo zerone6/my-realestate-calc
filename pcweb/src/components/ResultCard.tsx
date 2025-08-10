@@ -1,6 +1,109 @@
 import { useState, Fragment } from 'react';
 import { RepaymentSchedule, TaxCalculation, FormInputData } from '../../../shared/types/RealEstateForm';
 
+// 연간 자금 흐름 타입 (공용)
+type YearlyFlow = {
+  year: number;
+  annualRent: number;
+  annualPayment: number;
+  annualPrincipal: number;
+  annualInterest: number;
+  annualMgmt: number;
+  annualMaintenanceReserve: number;
+  maintenanceSpent: number;
+  annualPropTax: number;
+  annualInsurance: number;
+  annualOther: number;
+  annualExpenseTotal: number; // 관리/수선 적립/세금/보험/기타 포함 (현금 유출)
+  taxableIncome: number; // (임대수익 – 비용 – 이자 – 감가상각)
+  annualDepreciation: number;
+  corporateTax: number;
+  localTax: number;
+  totalTax: number;
+  netCashFlowAfterTax: number; // 세후 CF
+  cumulativeCFAfterTax: number;
+  loanBalance: number;
+  remainingValue: number; // 건물 잔존가치(감가)
+  salePrice: number; // 매각가(시장경로)
+  sellingFee: number; // 매각수수료
+  netProceedsBeforeTax: number; // 세전 실수령액
+  capitalGains: number; // 양도차익
+  capitalGainsTax: number; // 양도소득세(법인세+지방세+사업세 합산)
+  netProceedsAfterTax: number; // 세후 실수령액
+};
+
+// 간단한 멀티 라인 차트 (SVG)
+const YearlyMultiLineChart = ({ data }: { data: YearlyFlow[] }) => {
+  const [visible, setVisible] = useState<Record<string, boolean>>({
+    annualPayment: true,
+    loanBalance: true,
+    netCashFlowAfterTax: true,
+    cumulativeCFAfterTax: true,
+    salePrice: false,
+    netProceedsAfterTax: false,
+  });
+  const toggleSeries = (key: string) => setVisible(v => ({ ...v, [key]: !v[key] }));
+  const series = [
+    { key: 'annualPayment', label: '대출 상환 총합', color: '#10b981' },
+    { key: 'loanBalance', label: '대출 잔액', color: '#6b7280' },
+    { key: 'netCashFlowAfterTax', label: '연간 CF(세후)', color: '#ef4444' },
+    { key: 'cumulativeCFAfterTax', label: '누적 CF(세후)', color: '#8b5cf6' },
+    { key: 'salePrice', label: '매각가', color: '#2563eb' },
+    { key: 'netProceedsAfterTax', label: '매각 후 실수령액(세후)', color: '#f59e0b' },
+  ] as const;
+  const activeKeys = series.filter(s => visible[s.key]).map(s => s.key);
+  const values = data.flatMap(d => activeKeys.map(k => (d as any)[k] as number));
+  const maxY = Math.max(1, ...values, 0);
+  const minY = Math.min(0, ...values);
+  const width = 800; const height = 280; const pad = 36; const innerW = width - pad * 2; const innerH = height - pad * 2;
+  const x = (i: number) => {
+    if (data.length <= 1) return pad + innerW / 2;
+    return pad + (i / (data.length - 1)) * innerW;
+  };
+  const y = (v: number) => pad + innerH - ((v - minY) / (maxY - minY)) * innerH;
+  const pathFor = (key: string) => data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y((d as any)[key])}`).join(' ');
+  const ticks = 5; const yTicks = Array.from({ length: ticks + 1 }, (_, i) => minY + (i * (maxY - minY)) / ticks);
+  return (
+    <div className="w-full overflow-x-auto">
+      <div className="flex flex-wrap gap-3 mb-2">
+        {series.map(s => (
+          <label key={s.key} className="inline-flex items-center gap-2 text-xs lg:text-sm">
+            <input type="checkbox" checked={visible[s.key]} onChange={() => toggleSeries(s.key)} />
+            <span className="inline-flex items-center">
+              <span className="w-3 h-3 rounded-sm mr-1" style={{ backgroundColor: s.color }} />{s.label}
+            </span>
+          </label>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full max-w-full">
+        {/* Y grid */}
+        {yTicks.map((tv) => (
+          <g key={tv}>
+            <line x1={pad} x2={width - pad} y1={y(tv)} y2={y(tv)} stroke="#e5e7eb" strokeWidth={1} />
+            <text x={4} y={y(tv) + 4} fontSize={10} fill="#6b7280">{Math.round(tv).toLocaleString()}</text>
+          </g>
+        ))}
+        {/* X ticks */}
+        {data.map((d, i) => (
+          <g key={d.year}>
+            <line x1={x(i)} x2={x(i)} y1={height - pad} y2={height - pad + 4} stroke="#9ca3af" />
+            {(i % 5 === 0 || i === data.length - 1) && (
+              <text x={x(i)} y={height - 4} fontSize={10} textAnchor="middle" fill="#6b7280">{d.year}</text>
+            )}
+          </g>
+        ))}
+        {/* Axes */}
+        <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} stroke="#9ca3af" />
+        <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke="#9ca3af" />
+        {/* Lines */}
+        {series.filter(s => visible[s.key]).map(s => (
+          <path key={s.key} d={pathFor(s.key)} fill="none" stroke={s.color} strokeWidth={2} />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
 interface CalculationResultProps {
   monthlyPayment: string;
   yearlyIncome: string;
@@ -69,8 +172,8 @@ export function ResultCard({
       parseFloat(formData.miscellaneousFees) || 0
     ].reduce((sum, cost) => sum + cost, 0) * 10000; // 만엔 -> 엔 변환
     
-    const annualDepreciation = buildingPrice * 10000 / lifespan; // 연간 감가상각비 (엔 단위)
-    const totalYears = Math.min(loanTerm, lifespan); // 대출기간과 내용연수 중 작은 값
+    const perYearDepreciation = lifespan > 0 ? (buildingPrice * 10000) / lifespan : 0; // 연간 감가상각비 (엔 단위)
+    const totalYears = loanTerm; // 대출기간 전체를 표시, 내용연수 이후엔 감가상각 0
     
     const taxCalculations: TaxCalculation[] = [];
     
@@ -86,8 +189,11 @@ export function ResultCard({
       const annualRent = yearSchedule.reduce((sum, month) => sum + month.rent, 0);
       const annualInterest = yearSchedule.reduce((sum, month) => sum + month.interest, 0);
       
-      // 부동산 잔존가치
-      const remainingValue = Math.max(0, buildingPrice * 10000 - (annualDepreciation * year));
+      // 감가상각: 내용연수 내에서만 발생
+      const annualDepreciation = year <= lifespan ? perYearDepreciation : 0;
+      // 부동산 잔존가치: 내용연수 이후 0 고정
+      const depreciated = Math.min(year, lifespan) * perYearDepreciation;
+      const remainingValue = Math.max(0, buildingPrice * 10000 - depreciated);
       
       // 과세소득 계산
       let totalExpenses = annualInterest + annualPropertyTax * 10000 + annualDepreciation + 
@@ -138,6 +244,94 @@ export function ResultCard({
 
   const taxCalculations = generateTaxCalculations();
 
+  // 연간 자금 흐름 계산 (기타/요약 그래프 공용)
+
+  // 내부 헬퍼들로 분리해 복잡도 낮추기
+  const calcAnnualMgmt = (months: RepaymentSchedule[], mgmtRate: number, mgmtFixedMonthly: number) =>
+    months.reduce((s, m) => s + Math.max(m.rent * (mgmtRate / 100), mgmtFixedMonthly), 0);
+  const calcAnnualReserve = (months: RepaymentSchedule[], rate: number, fixedMonthly: number) =>
+    months.reduce((s, m) => s + Math.max(m.rent * (rate / 100), fixedMonthly), 0);
+  const calcSalePrice = (acq: number, year: number, after11: number) => {
+    let price = acq;
+    const y1 = Math.min(year, 5); price *= Math.pow(0.98, y1);
+    if (year > 5) { const y2 = Math.min(year - 5, 5); price *= Math.pow(0.99, y2); }
+    if (year > 10) { const y3 = year - 10; price *= Math.pow(1 + after11, y3); }
+    return price;
+  };
+  const calcCorpTax = (income: number) => income <= 8000000 ? income * 0.15 : 8000000 * 0.15 + (income - 8000000) * 0.232;
+
+  const computeYearlyFlows = (): YearlyFlow[] => {
+    if (!formData || !schedule.length) return [];
+    const termYears = Math.max(1, parseInt(formData.term || '1', 10));
+    const occRate = parseFloat(formData.occupancyRate || '100') || 100;
+    const occ = occRate / 100;
+    const mgmtRate = parseFloat(formData.managementFeeRate || '0') || 0;
+    const maintRate = parseFloat(formData.maintenanceFeeRate || '0') || 0;
+    const mgmtFixedMonthly = (parseFloat(formData.managementFee || '0') || 0) * 10000;
+    const maintFixedMonthly = (parseFloat(formData.maintenanceFee || '0') || 0) * 10000;
+    const propTaxAnnual = (parseFloat(formData.propertyTax || '0') || 0) * 10000;
+    const insuranceAnnual = (parseFloat(formData.insurance || '0') || 0) * 10000;
+    const otherAnnual = (parseFloat(formData.otherExpenses || '0') || 0) * 10000;
+    const acquisitionPriceYen = (parseFloat((formData.price as any) || '0') || 0) * 10000;
+    const structureLifespan = STRUCTURE_LIFESPANS[formData.structure] || 22;
+    const buildingPriceYen = (parseFloat(formData.buildingPrice) || 0) * 10000;
+    const perYearDep = structureLifespan > 0 ? buildingPriceYen / structureLifespan : 0;
+    const years: YearlyFlow[] = [];
+    let cumulativeCFAfterTax = 0;
+    let maintenanceReserve = 0;
+    const saleGrowthAfter11 = 0.0; // 11년차 이후 0%
+    for (let y = 1; y <= termYears; y++) {
+      const yearStart = (y - 1) * 12;
+      const yearEnd = Math.min(y * 12, schedule.length);
+      const months = schedule.slice(yearStart, yearEnd);
+      if (!months.length) break;
+      const annualRent = months.reduce((s, m) => s + m.rent * occ, 0);
+      const annualPayment = months.reduce((s, m) => s + m.payment, 0);
+      const annualPrincipal = months.reduce((s, m) => s + m.principal, 0);
+      const annualInterest = months.reduce((s, m) => s + m.interest, 0);
+      const annualMgmt = calcAnnualMgmt(months, mgmtRate, mgmtFixedMonthly);
+      const annualMaintenanceReserve = calcAnnualReserve(months, maintRate, maintFixedMonthly);
+      maintenanceReserve += annualMaintenanceReserve;
+      let maintenanceSpent = 0; if (y % 10 === 0) { maintenanceSpent = maintenanceReserve; maintenanceReserve = 0; }
+      const annualPropTax = propTaxAnnual;
+      const annualInsurance = insuranceAnnual;
+      const annualOther = otherAnnual;
+      const annualExpenseTotal = annualMgmt + annualMaintenanceReserve + annualPropTax + annualInsurance + annualOther;
+
+      // 세금 계산(과세소득 = 임대수익 – 비용 – 이자 – 감가상각)
+      const annualDepreciation = y <= structureLifespan ? perYearDep : 0;
+      const taxableIncomeRaw = annualRent - (annualMgmt + annualPropTax + annualInsurance + annualOther) - annualInterest - annualDepreciation;
+      const taxableIncome = Math.max(0, Math.floor(taxableIncomeRaw));
+      const corporateTax = calcCorpTax(taxableIncome);
+      const localTax = corporateTax * 0.07 + taxableIncome * 0.05;
+      const totalTax = corporateTax + localTax;
+
+      // 세후 CF (원리금 상환 포함한 현금 유출 + 세금 차감)
+      const netCashFlowAfterTax = annualRent - annualPayment - annualExpenseTotal - totalTax;
+      cumulativeCFAfterTax += netCashFlowAfterTax;
+      const loanBalance = months[months.length - 1]?.remaining ?? 0;
+      const remainingValue = Math.max(0, buildingPriceYen - Math.min(y, structureLifespan) * perYearDep);
+      // 매각가 경로
+      const salePrice = calcSalePrice(acquisitionPriceYen, y, saleGrowthAfter11);
+      const sellingFee = salePrice * 0.03;
+      const netProceedsBeforeTax = Math.max(0, salePrice - sellingFee - loanBalance);
+      const capitalGains = Math.max(0, salePrice - acquisitionPriceYen);
+      const capCorp = calcCorpTax(capitalGains);
+      const capLocal = capCorp * 0.07 + capitalGains * 0.05;
+      const capitalGainsTax = capCorp + capLocal;
+      const netProceedsAfterTax = Math.max(0, netProceedsBeforeTax - capitalGainsTax);
+      years.push({
+        year: y,
+        annualRent, annualPayment, annualPrincipal, annualInterest, annualMgmt,
+        annualMaintenanceReserve, maintenanceSpent, annualPropTax, annualInsurance, annualOther,
+        annualExpenseTotal, taxableIncome, annualDepreciation, corporateTax, localTax, totalTax,
+        netCashFlowAfterTax, cumulativeCFAfterTax, loanBalance, remainingValue,
+        salePrice, sellingFee, netProceedsBeforeTax, capitalGains, capitalGainsTax, netProceedsAfterTax,
+      });
+    }
+    return years;
+  };
+
   // 모바일에서 만원 단위로 표시하기 위한 헬퍼 함수
   const formatCurrency = (value: string | number, isMobile: boolean = false) => {
     const numValue = typeof value === 'string' ? parseInt(value) : value;
@@ -172,20 +366,32 @@ export function ResultCard({
   ];
 
   // 요약 탭 렌더링
-  const renderSummaryTab = () => (
-    <div className="space-y-4">
-      <h3 className="text-base lg:text-lg font-bold">계산 결과 요약</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-4 text-sm lg:text-base">
-        <div>매월 상환금: <strong>{formatCurrency(monthlyPayment)}</strong></div>
-        <div>연간 수입: <strong>{formatCurrency(yearlyIncome)}</strong></div>
-        <div>연간 지출: <strong>{formatCurrency(yearlyCost)}</strong></div>
-        <div>연간 순이익: <strong>{formatCurrency(yearlyProfit)}</strong></div>
-        <div>표면 수익률 (GRY): <strong>{grossYield} %</strong></div>
-        <div>예상 수익률 (NRY): <strong>{yieldPercent} %</strong></div>
-        <div>자기자본 수익률: <strong>{equityYield} %</strong></div>
+  const renderSummaryTab = () => {
+    const yearly = computeYearlyFlows();
+    return (
+      <div className="space-y-4">
+        <h3 className="text-base lg:text-lg font-bold">계산 결과 요약</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-4 text-sm lg:text-base">
+          <div>매월 상환금: <strong>{formatCurrency(monthlyPayment)}</strong></div>
+          <div>연간 수입: <strong>{formatCurrency(yearlyIncome)}</strong></div>
+          <div>연간 지출: <strong>{formatCurrency(yearlyCost)}</strong></div>
+          <div>연간 순이익: <strong>{formatCurrency(yearlyProfit)}</strong></div>
+          <div>표면 수익률 (GRY): <strong>{grossYield} %</strong></div>
+          <div>예상 수익률 (NRY): <strong>{yieldPercent} %</strong></div>
+          <div>자기자본 수익률: <strong>{equityYield} %</strong></div>
+        </div>
+
+        {yearly.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm lg:text-base font-semibold mb-2">연간 자금 흐름 비교 그래프</h4>
+            <YearlyMultiLineChart data={yearly} />
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
+
+  // (차트 컴포넌트는 파일 상단 전역에 정의)
 
   // 상환 일정표 탭 렌더링
   const renderScheduleTab = () => {
@@ -285,60 +491,93 @@ export function ResultCard({
               {currentSchedule.map((item, index) => {
                 const globalIndex = (currentPage - 1) * itemsPerPage + index;
                 const isSelected = selectedRow === globalIndex;
-                
+                const caret = isSelected ? '▼' : '▶';
                 return (
-                  <tr 
-                    key={item.month}
-                    className={`lg:hover:bg-gray-50 cursor-pointer relative ${isSelected ? 'bg-blue-50' : ''}`}
-                    onClick={() => toggleTooltip(globalIndex)}
-                  >
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">{item.month}</td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatDate(item.date, true)}</span>
-                      <span className="hidden lg:inline">{item.date}</span>
-                    </td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatCurrency(item.rent, true)}</span>
-                      <span className="hidden lg:inline">{formatCurrency(item.rent)}</span>
-                    </td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatCurrency(item.payment, true)}</span>
-                      <span className="hidden lg:inline">{formatCurrency(item.payment)}</span>
-                    </td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatCurrency(item.principal, true)}</span>
-                      <span className="hidden lg:inline">{formatCurrency(item.principal)}</span>
-                    </td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatCurrency(item.interest, true)}</span>
-                      <span className="hidden lg:inline">{formatCurrency(item.interest)}</span>
-                    </td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatCurrency(item.cashFlow || 0, true)}</span>
-                      <span className="hidden lg:inline">{formatCurrency(item.cashFlow || 0)}</span>
-                    </td>
-                    <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                      <span className="lg:hidden">{formatCurrency(item.remaining, true)}</span>
-                      <span className="hidden lg:inline">{formatCurrency(item.remaining)}</span>
-                    </td>
-                    
-                    {/* 모바일 툴팁 */}
-                    {isSelected && (
-                      <td className="lg:hidden absolute left-0 top-full z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-max">
-                        <div className="text-xs space-y-1">
-                          <div className="font-semibold text-gray-800">{item.month}회차 상세금액</div>
-                          <div>상환일: {item.date}</div>
-                          <div>추정 월세: {formatCurrency(item.rent)} 円</div>
-                          <div>월 상환금: {formatCurrency(item.payment)} 円</div>
-                          <div>원금: {formatCurrency(item.principal)} 円</div>
-                          <div>이자: {formatCurrency(item.interest)} 円</div>
-                          <div>CF: {formatCurrency(item.cashFlow || 0)} 円</div>
-                          <div>대출 잔액: {formatCurrency(item.remaining)} 円</div>
-                          <div className="text-gray-500 mt-2">다시 클릭하면 닫힙니다</div>
-                        </div>
+                  <Fragment key={item.month}>
+                    <tr 
+                      className={`lg:hover:bg-gray-50 cursor-pointer relative ${isSelected ? 'bg-blue-50' : ''}`}
+                      onClick={() => toggleTooltip(globalIndex)}
+                    >
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm font-medium text-blue-600">
+                        {item.month}회차 {caret}
                       </td>
-                    )}
-                  </tr>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatDate(item.date, true)}</span>
+                        <span className="hidden lg:inline">{item.date}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(item.rent, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(item.rent)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(item.payment, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(item.payment)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(item.principal, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(item.principal)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(item.interest, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(item.interest)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(item.cashFlow || 0, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(item.cashFlow || 0)}</span>
+                      </td>
+                      <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
+                        <span className="lg:hidden">{formatCurrency(item.remaining, true)}</span>
+                        <span className="hidden lg:inline">{formatCurrency(item.remaining)}</span>
+                      </td>
+                    </tr>
+                    {isSelected && (() => {
+                      const occRate = parseFloat(formData?.occupancyRate || '100') || 100;
+                      const rentReceived = item.rent * (occRate / 100);
+                      const mgmtRate = parseFloat(formData?.managementFeeRate || '0') || 0;
+                      const maintRate = parseFloat(formData?.maintenanceFeeRate || '0') || 0;
+                      const mgmtAmountMonthly = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
+                      const maintAmountMonthly = (parseFloat(formData?.maintenanceFee || '0') || 0) * 10000;
+                      const mgmtFromRate = item.rent * (mgmtRate / 100);
+                      const maintFromRate = item.rent * (maintRate / 100);
+                      const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthly);
+                      const maintMonthly = Math.max(maintFromRate, maintAmountMonthly);
+                      const propTaxMonthly = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
+                      const insuranceMonthly = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
+                      const otherMonthly = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
+                      const maintenanceBundle = mgmtMonthly + maintMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
+                      const cfDetailed = rentReceived - item.payment - maintenanceBundle;
+                      return (
+                        <tr className="bg-blue-50">
+                          <td colSpan={8} className="px-2 lg:px-3 py-3">
+                            <div className="text-xs lg:text-sm space-y-2">
+                              <div className="font-semibold text-gray-800">{item.month}회차 월간 상세 캐시플로우</div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="flex justify-between"><span>입금 월세(입주율 {occRate}%):</span><span>{formatCurrency(rentReceived)}</span></div>
+                                  <div className="flex justify-between"><span>대출 상환금:</span><span>{formatCurrency(item.payment)}</span></div>
+                                  <div className="flex justify-between"><span>원금:</span><span>{formatCurrency(item.principal)}</span></div>
+                                  <div className="flex justify-between"><span>이자:</span><span>{formatCurrency(item.interest)}</span></div>
+                                </div>
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="flex justify-between"><span>관리비(월):</span><span>{formatCurrency(mgmtMonthly)}</span></div>
+                                  <div className="flex justify-between"><span>수선비(월):</span><span>{formatCurrency(maintMonthly)}</span></div>
+                                  <div className="flex justify-between"><span>고정자산세(월):</span><span>{formatCurrency(propTaxMonthly)}</span></div>
+                                  <div className="flex justify-between"><span>보험료(월):</span><span>{formatCurrency(insuranceMonthly)}</span></div>
+                                  <div className="flex justify-between"><span>기타경비(월):</span><span>{formatCurrency(otherMonthly)}</span></div>
+                                </div>
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="flex justify-between font-medium border-t pt-1"><span>유지·세금 묶음:</span><span>{formatCurrency(maintenanceBundle)}</span></div>
+                                  <div className="flex justify-between font-bold text-blue-600"><span>월간 CF:</span><span>{formatCurrency(cfDetailed)}</span></div>
+                                  <div className="flex justify-between text-gray-500"><span>대출 잔액:</span><span>{formatCurrency(item.remaining)}</span></div>
+                                </div>
+                              </div>
+                              <div className="mt-1 text-gray-500">행을 다시 클릭하면 상세가 닫힙니다</div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -528,12 +767,80 @@ export function ResultCard({
   };
 
   // 기타 탭 렌더링
-  const renderOtherTab = () => (
-    <div className="space-y-4">
-      <h3 className="text-base lg:text-lg font-bold">기타</h3>
-      <p className="text-sm lg:text-base text-gray-500">추후 추가 기능이 제공될 예정입니다.</p>
-    </div>
-  );
+  const renderOtherTab = () => {
+    if (!formData || !schedule.length) {
+      return (
+        <div className="space-y-4">
+          <h3 className="text-base lg:text-lg font-bold">기타</h3>
+          <p className="text-sm lg:text-base">연간 자금 흐름을 계산할 데이터가 부족합니다.</p>
+        </div>
+      );
+    }
+    const years = computeYearlyFlows();
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-base lg:text-lg font-bold">연간 자금 흐름 테이블</h3>
+        <p className="text-xs text-gray-500">
+          수선비는 매년 적립하여 10/20/30년차에 사용합니다. 매각 순현금은 건물가치 기준(3% 매각비용 가정) − 대출잔액입니다.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연차</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">월세총합</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상환금총합</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">원금</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이자</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리비</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">수선비 적립</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">수선비 지출</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세금·보험·기타</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간비용계</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간CF</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">누적CF</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대출잔액</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">잔존가치</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">매각순현금</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {years.map(y => (
+                <tr key={y.year}>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-medium text-blue-600">{y.year}년차</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualRent)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualPayment)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualPrincipal)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualInterest)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualMgmt)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualMaintenanceReserve)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.maintenanceSpent)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualPropTax + y.annualInsurance + y.annualOther)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualExpenseTotal)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-medium">{formatCurrency(y.netCashFlowAfterTax)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.cumulativeCFAfterTax)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.loanBalance)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.remainingValue)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-bold text-blue-600">{formatCurrency(y.netProceedsAfterTax)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-4 bg-gray-50 rounded-lg text-xs lg:text-sm">
+          <h4 className="font-medium text-gray-800 mb-2">계산 기준</h4>
+          <ul className="space-y-1 text-gray-600">
+            <li>• 입주율을 반영해 월세 수입을 계산합니다</li>
+            <li>• 수선비는 매년 적립 후 10/20/30년차에 일괄 지출합니다</li>
+            <li>• 잔존가치는 건물가치 기준(내용연수에 따라 감가), 토지 가치는 포함되지 않습니다</li>
+            <li>• 매각순현금은 건물가치에서 3% 수수료와 대출잔액을 차감한 금액입니다</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
 
   // 현재 활성 탭에 따른 컨텐츠 렌더링
   const renderTabContent = () => {
