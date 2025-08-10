@@ -151,10 +151,14 @@ public class CalculationService {
                         // Rent adjustment
                         if (j > rentFixedPeriod * 12) {
                                 int monthsSinceFixedPeriodEnd = j - (rentFixedPeriod * 12);
-                                if (monthsSinceFixedPeriodEnd > 0
-                                                && monthsSinceFixedPeriodEnd % (rentAdjustmentInterval * 12) == 1) {
-                                        // 조정 주기의 첫 달에만 월세를 조정합니다.
-                                        currentRent *= (1 - (rentAdjustmentRate / 100.0));
+                                // 조정 주기가 0 이하인 경우 조정하지 않음 (분모 0 방지)
+                                if (rentAdjustmentInterval > 0 && rentAdjustmentRate != 0) {
+                                        int intervalMonths = rentAdjustmentInterval * 12;
+                                        if (monthsSinceFixedPeriodEnd > 0 && intervalMonths > 0
+                                                        && monthsSinceFixedPeriodEnd % intervalMonths == 1) {
+                                                // 조정 주기의 첫 달에만 월세를 조정합니다.
+                                                currentRent *= (1 - (rentAdjustmentRate / 100.0));
+                                        }
                                 }
                         }
                 }
