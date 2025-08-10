@@ -220,6 +220,31 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
     setCurrentStep(step)
   }
 
+  // 유지비 탭으로 진입할 때 현재 월세와 비율을 기준으로 관리비/수선비 초기값 반영
+  useEffect(() => {
+    const maintenanceIndex = steps.findIndex(s => s.key === 'maintenance')
+    if (currentStep === maintenanceIndex) {
+      const rent = parseFloat(form.rent) || 0
+      const managementFeeRate = parseFloat(form.managementFeeRate) || 0
+      const maintenanceFeeRate = parseFloat(form.maintenanceFeeRate) || 0
+      // 사용자가 아직 금액을 입력하지 않은 초기 상태('0')에서만 자동 반영
+      const shouldInitMgmt = form.managementFee === '0' && managementFeeRate > 0
+      const shouldInitMaint = form.maintenanceFee === '0' && maintenanceFeeRate > 0
+      if (rent > 0 && (shouldInitMgmt || shouldInitMaint)) {
+        const updated: FormInputData = { ...form }
+        if (shouldInitMgmt) {
+          const calc = rent * (managementFeeRate / 100)
+          updated.managementFee = calc.toFixed(1)
+        }
+        if (shouldInitMaint) {
+          const calc = rent * (maintenanceFeeRate / 100)
+          updated.maintenanceFee = calc.toFixed(1)
+        }
+        setForm(updated)
+      }
+    }
+  }, [currentStep])
+
   // 터치 관련 상태
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)

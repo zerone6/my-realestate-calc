@@ -6,15 +6,16 @@ import { safeParseFloat, safeParseInt } from './validation'
  */
 export function convertFormToRequest(form: FormInputData): CalculationRequest {
     const totalPurchaseCost = calculateTotalPurchaseCost(form)
-    let ownCapital = safeParseFloat(form.ownCapital)
+    // ownCapital 입력이 비어있는 경우에만 기본값(총 매입비용의 10%) 적용
+    const hasOwnCapitalInput = typeof form.ownCapital === 'string' && form.ownCapital.trim() !== ''
+    let ownCapital = hasOwnCapitalInput
+        ? safeParseFloat(form.ownCapital)            // 사용자가 명시 입력 (0 포함) → 그대로 사용
+        : totalPurchaseCost * 0.1                    // 미입력(빈문자열)일 때만 10% 기본값
+    // 하한 0 보장
+    ownCapital = Math.max(0, ownCapital)
     
-    // 자기자본이 0이거나 입력되지 않은 경우, 총 매입비용의 10%를 기본값으로 설정
-    if (ownCapital <= 0) {
-        ownCapital = totalPurchaseCost * 0.1 // 10% 자기자본 (더 현실적)
-    }
-    
-    // 대출금액 계산 (만엔 단위)
-    const loan = Math.max(0.1, totalPurchaseCost - ownCapital) // 최소 0.1로 설정하여 validation 통과
+    // 대출금액 계산 (만엔 단위) - 0도 허용 (@PositiveOrZero)
+    const loan = Math.max(0, totalPurchaseCost - ownCapital)
     
     // 월세를 円 단위로 변환 (form.rent는 만円 단위)
     const monthlyRentInYen = safeParseFloat(form.rent) * 10000 // 万円 → 円 변환
