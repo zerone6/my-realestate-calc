@@ -50,7 +50,7 @@ function CalculatorApp() {
         try {
           localStorage.removeItem('realEstateForm')
           localStorage.removeItem('realEstateFormStep')
-        } catch {}
+        } catch { }
       } else {
         // 로그아웃: 현재 목록 저장 후 전체 초기화
         if (userId) {
@@ -65,7 +65,7 @@ function CalculatorApp() {
         try {
           localStorage.removeItem('realEstateForm')
           localStorage.removeItem('realEstateFormStep')
-        } catch {}
+        } catch { }
       }
     }
 
@@ -212,8 +212,8 @@ function CalculatorApp() {
       case 0:
         return (
           <>
-            <MultiStepInputForm 
-              onCalculate={handleCalculate} 
+            <MultiStepInputForm
+              onCalculate={handleCalculate}
               onAutoSave={handleAutoSave}
               defaultForm={activeForm}
               onCalculateComplete={handleCalculateComplete}
@@ -234,7 +234,7 @@ function CalculatorApp() {
               </div>
             )}
 
-    {showResult && result && calculatedForm && (
+            {showResult && result && calculatedForm && (
               <div id="calculation-result" className="mt-6">
                 <ResultCard
                   monthlyPayment={result.monthlyPayment}
@@ -246,7 +246,7 @@ function CalculatorApp() {
                   equityYield={(result as any).equityYield || '0.0'}
                   schedule={(result as any).schedule || result.repaymentSchedule || []}
                   taxCalculation={(result as any).taxCalculation || {}}
-      formData={calculatedForm}
+                  formData={calculatedForm}
                   onClose={() => setResult(null)}
                 />
               </div>
@@ -285,17 +285,15 @@ function CalculatorApp() {
               <span className="font-medium text-gray-700">저장된 부동산</span>
               <span className="text-sm text-gray-500">({savedItems.length})</span>
             </div>
-            <span className={`text-gray-400 transition-transform duration-200 ${
-              isMobileSidebarOpen ? 'rotate-180' : ''
-            }`}>
+            <span className={`text-gray-400 transition-transform duration-200 ${isMobileSidebarOpen ? 'rotate-180' : ''
+              }`}>
               ▼
             </span>
           </button>
-          
+
           {/* 모바일 접히는 콘텐츠 */}
-          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-            isMobileSidebarOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-          }`}>
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isMobileSidebarOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}>
             <div className="p-4">
               {savedItems.length === 0 ? (
                 <p className="text-sm text-gray-500">저장된 부동산이 없습니다</p>
@@ -363,20 +361,19 @@ function CalculatorApp() {
           <div className="px-4">
             <div className="h-12 flex items-center justify-between">
               <div className="flex space-x-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="text-lg">{tab.icon}</span>
-                  <span>{tab.name}</span>
-                </button>
-              ))}
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors ${activeTab === tab.id
+                        ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    <span className="text-lg">{tab.icon}</span>
+                    <span>{tab.name}</span>
+                  </button>
+                ))}
               </div>
               <div className="hidden lg:block">
                 {/* 동일 행의 우측 인증 버튼 */}
@@ -387,7 +384,7 @@ function CalculatorApp() {
         </div>
 
         {/* 탭 콘텐츠 */}
-  <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
           {renderTabContent()}
         </main>
       </div>
