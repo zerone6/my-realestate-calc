@@ -905,7 +905,7 @@ export function ResultCard({
   };
 
   return (
-    <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-white p-4 lg:p-6 rounded-xl shadow-md space-y-4">
+  <div className="max-w-full lg:max-w-[1440px] mx-auto mt-6 bg-white p-4 lg:p-6 rounded-xl shadow-md space-y-4">
       {/* 탭 네비게이션 */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">

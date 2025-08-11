@@ -220,7 +220,7 @@ function CalculatorApp() {
             />
 
             {loading && (
-              <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-white rounded-xl shadow-md p-4 lg:p-6">
+              <div className="max-w-full lg:max-w-[1440px] mx-auto mt-6 bg-white rounded-xl shadow-md p-4 lg:p-6">
                 <div className="text-center">
                   <div className="inline-block animate-spin rounded-full h-6 w-6 lg:h-8 lg:w-8 border-b-2 border-blue-500"></div>
                   <p className="mt-2 text-sm lg:text-base text-gray-600">계산 중...</p>
@@ -229,7 +229,7 @@ function CalculatorApp() {
             )}
 
             {error && (
-              <div className="max-w-full lg:max-w-4xl mx-auto mt-6 bg-red-50 border border-red-200 rounded-xl shadow-md p-4 lg:p-6">
+              <div className="max-w-full lg:max-w-[1440px] mx-auto mt-6 bg-red-50 border border-red-200 rounded-xl shadow-md p-4 lg:p-6">
                 <p className="text-red-600 text-sm lg:text-base">오류: {error}</p>
               </div>
             )}
