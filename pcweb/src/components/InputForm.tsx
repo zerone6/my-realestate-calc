@@ -12,7 +12,7 @@ interface FormProps {
   defaultForm?: FormInputData | null
 }
 
-export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }: FormProps) {
+export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }: Readonly<FormProps>) {
   const [form, setForm] = useState<FormInputData>(createDefaultFormData())
 
   const STRUCTURE_LIFESPANS: { [key: string]: number } = {
@@ -23,9 +23,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     '목조': 22
   };
 
-  // 편집 모드 상태 관리
-  const [editingField, setEditingField] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
+  // 편집 모드 상태 관리 (미사용 코드 제거)
 
   // 설명 툴팁 상태 관리
   const [tooltipVisible, setTooltipVisible] = useState(false)
@@ -55,8 +53,8 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
   // 연간 수익 계산 (만원 단위로 입력받아서 円으로 변환)
   const annualIncome = (parseFloat(form.rent) || 0) * 10000 * 12;
 
-  // 입주율 반영 수익 계산
-  const occupancyAdjustedIncome = annualIncome * (parseFloat(form.occupancyRate) / 100);
+  // 입주율 반영 수익 계산 (미사용)
+  // const occupancyAdjustedIncome = annualIncome * (parseFloat(form.occupancyRate) / 100);
 
   useEffect(() => {
     if (defaultForm) {
@@ -148,52 +146,9 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     setForm(newForm);
   };
 
-  // 동적 name을 처리하는 함수
-  const updateWithDynamicName = (fieldName: string, value: string) => {
-    let newForm = { ...form, [fieldName]: value };
+  // 동적 name 처리 유틸 (미사용) 제거
 
-    // 제비용이 변경된 경우 표면이율에 맞춰 월세 재계산
-    if (fieldName.startsWith('initialCost') && !fieldName.endsWith('Name')) {
-      const totalCost = calculateTotalPurchaseCost(newForm);
-      const grossYield = parseFloat(newForm.grossYield) || 6.0; // 기본값 6.0% 사용
-      if (totalCost > 0) {
-        const newRent = (totalCost * grossYield / 100 / 12).toFixed(1);
-        newForm = { ...newForm, rent: newRent };
-      }
-    }
-
-    setForm(newForm);
-  }
-
-  // 편집 시작
-  const startEditing = (fieldName: string, currentValue: string) => {
-    setEditingField(fieldName)
-    setEditValue(currentValue)
-  }
-
-  // 편집 완료
-  const finishEditing = () => {
-    if (editingField && editValue.trim()) {
-      setForm(prevForm => ({ ...prevForm, [editingField]: editValue.trim() }))
-    }
-    setEditingField(null)
-    setEditValue('')
-  }
-
-  // 편집 취소
-  const cancelEditing = () => {
-    setEditingField(null)
-    setEditValue('')
-  }
-
-  // Enter 키로 편집 완료
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      finishEditing()
-    } else if (e.key === 'Escape') {
-      cancelEditing()
-    }
-  }
+  // 인라인 편집 관련 유틸들 (미사용) 제거
 
   // 유지비 합계 계산
   const maintenanceTotal = [
@@ -331,6 +286,46 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors h-12"
             />
             <span className="absolute right-3 top-9 text-gray-500">%</span>
+          </div>
+          {/* 관리수수료 (신규) */}
+          <div className="relative">
+            <label
+              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
+              onClick={(e) => handleLabelClick('managementCommissionRate', e)}
+            >
+              관리수수료율 (월간, %)
+            </label>
+            <input
+              name="managementCommissionRate"
+              type="number"
+              min="0"
+              max="50"
+              step="0.1"
+              value={(form as any).managementCommissionRate || ''}
+              onChange={handleInputChange}
+              placeholder="관리수수료율"
+              className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors h-12"
+            />
+            <span className="absolute right-3 top-9 text-gray-500">%</span>
+          </div>
+          <div className="relative">
+            <label
+              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
+              onClick={(e) => handleLabelClick('managementCommissionFee', e)}
+            >
+              관리수수료 (월간, 万円)
+            </label>
+            <input
+              name="managementCommissionFee"
+              type="number"
+              min="0"
+              max="100"
+              value={(form as any).managementCommissionFee || ''}
+              onChange={handleInputChange}
+              placeholder="관리수수료"
+              className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors h-12"
+            />
+            <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
             <label
@@ -470,7 +465,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-green-600 transition-colors"
               onClick={(e) => handleLabelClick('rate', e)}
             >
-              금리 *
+              금리 (연간, %) *
             </label>
             <input
               name="rate"
@@ -490,7 +485,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-green-600 transition-colors"
               onClick={(e) => handleLabelClick('term', e)}
             >
-              대출 기간 *
+              대출 기간 (연간, 년) *
             </label>
             <input
               name="term"
@@ -541,7 +536,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('rent', e)}
             >
-              월세 수익 *
+              월세 수익 (월간, 万円) *
             </label>
             <input
               name="rent"
@@ -556,7 +551,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">연간 수익</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">연간 수익 (연간, 円)</label>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">월세수익 x 12</span>
               <span className="text-lg font-bold text-yellow-600">
@@ -572,7 +567,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('managementFee', e)}
             >
-              관리비
+              관리비 (월간, 万円)
             </label>
             <input
               name="managementFee"
@@ -591,7 +586,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('managementFeeRate', e)}
             >
-              관리비율
+              관리비율 (월간, %)
             </label>
             <input
               name="managementFeeRate"
@@ -611,7 +606,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('maintenanceFee', e)}
             >
-              장기수선 적립
+              장기수선 적립 (월간, 万円)
             </label>
             <input
               name="maintenanceFee"
@@ -630,7 +625,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('maintenanceFeeRate', e)}
             >
-              장기수선 적립 비율
+              장기수선 적립 비율 (월간, %)
             </label>
             <input
               name="maintenanceFeeRate"
@@ -653,7 +648,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('propertyTax', e)}
             >
-              부동산세
+              부동산세 (연간, 万円)
             </label>
             <input
               name="propertyTax"
@@ -672,7 +667,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('insurance', e)}
             >
-              보험료
+              보험료 (연간, 万円)
             </label>
             <input
               name="insurance"
@@ -691,7 +686,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('otherExpenses', e)}
             >
-              기타 비용
+              기타 비용 (연간, 万円)
             </label>
             <input
               name="otherExpenses"
@@ -706,7 +701,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">유지·장기수선 합계</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">유지·장기수선 합계 (연간, 万円)</label>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">자동 계산</span>
               <span className="text-lg font-bold text-yellow-600">

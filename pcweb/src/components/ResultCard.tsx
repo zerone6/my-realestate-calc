@@ -46,7 +46,7 @@ const YearlyMultiLineChart = ({ data }: { data: YearlyFlow[] }) => {
   const series = [
     { key: 'annualPayment', label: '대출 상환 총합', color: '#10b981' },
     { key: 'loanBalance', label: '대출 잔액', color: '#6b7280' },
-    { key: 'netCashFlowAfterTax', label: '연간 CF(세후)', color: '#ef4444' },
+    { key: 'netCashFlowAfterTax', label: '연간 CF(세후·적립금 포함)', color: '#ef4444' },
     { key: 'cumulativeCFAfterTax', label: '누적 CF(세후)', color: '#8b5cf6' },
     { key: 'salePrice', label: '매각가', color: '#2563eb' },
     { key: 'netProceedsAfterTax', label: '매각 후 실수령액(세후)', color: '#f59e0b' },
@@ -196,8 +196,8 @@ export function ResultCard({
       const remainingValue = Math.max(0, buildingPrice * 10000 - depreciated);
       
       // 과세소득 계산
-      let totalExpenses = annualInterest + annualPropertyTax * 10000 + annualDepreciation + 
-                         annualManagementFee * 10000 + annualInsurance * 10000 + annualOtherExpenses * 10000;
+  let totalExpenses = annualInterest + annualPropertyTax * 10000 + annualDepreciation + 
+         annualManagementFee * 10000 + annualInsurance * 10000 + annualOtherExpenses * 10000;
       
       // 첫해는 제비용 포함
       if (year === 1) {
@@ -218,7 +218,9 @@ export function ResultCard({
       const localTax = corporateTax * 0.07 + taxableIncome * 0.05;
       
       const totalTax = corporateTax + localTax;
-      const netCashFlow = annualRent - totalExpenses - totalTax;
+  // 세후 CF(적립금 포함): 수선 적립은 제외(관리+세금+보험+기타만 비용으로 반영), 상환은 세금 표에서 제외이므로 유지
+  const nonReserveExpenses = annualPropertyTax * 10000 + annualManagementFee * 10000 + annualInsurance * 10000 + annualOtherExpenses * 10000 + annualDepreciation + annualInterest;
+  const netCashFlow = annualRent - nonReserveExpenses - totalTax;
       
       taxCalculations.push({
         year,
@@ -263,9 +265,11 @@ export function ResultCard({
   const computeYearlyFlows = (): YearlyFlow[] => {
     if (!formData || !schedule.length) return [];
   const termYears = Math.max(1, parseInt(formData.term || '1', 10));
-    const mgmtRate = parseFloat(formData.managementFeeRate || '0') || 0;
-    const maintRate = parseFloat(formData.maintenanceFeeRate || '0') || 0;
+  const mgmtRate = parseFloat(formData.managementFeeRate || '0') || 0;
+  const mgmtComRate = parseFloat((formData as any).managementCommissionRate || '0') || 0;
+  const maintRate = parseFloat(formData.maintenanceFeeRate || '0') || 0;
     const mgmtFixedMonthly = (parseFloat(formData.managementFee || '0') || 0) * 10000;
+  const mgmtComFixedMonthly = (parseFloat((formData as any).managementCommissionFee || '0') || 0) * 10000;
     const maintFixedMonthly = (parseFloat(formData.maintenanceFee || '0') || 0) * 10000;
     const propTaxAnnual = (parseFloat(formData.propertyTax || '0') || 0) * 10000;
     const insuranceAnnual = (parseFloat(formData.insurance || '0') || 0) * 10000;
@@ -287,14 +291,17 @@ export function ResultCard({
       const annualPayment = months.reduce((s, m) => s + m.payment, 0);
       const annualPrincipal = months.reduce((s, m) => s + m.principal, 0);
       const annualInterest = months.reduce((s, m) => s + m.interest, 0);
-      const annualMgmt = calcAnnualMgmt(months, mgmtRate, mgmtFixedMonthly);
-      const annualMaintenanceReserve = calcAnnualReserve(months, maintRate, maintFixedMonthly);
+      // 관리비 + 관리수수료를 합산하여 연간 관리비로 취급
+      const annualMgmt = calcAnnualMgmt(months, mgmtRate, mgmtFixedMonthly)
+        + calcAnnualMgmt(months, mgmtComRate, mgmtComFixedMonthly);
+  const annualMaintenanceReserve = calcAnnualReserve(months, maintRate, maintFixedMonthly);
       maintenanceReserve += annualMaintenanceReserve;
       let maintenanceSpent = 0; if (y % 10 === 0) { maintenanceSpent = maintenanceReserve; maintenanceReserve = 0; }
       const annualPropTax = propTaxAnnual;
       const annualInsurance = insuranceAnnual;
       const annualOther = otherAnnual;
-      const annualExpenseTotal = annualMgmt + annualMaintenanceReserve + annualPropTax + annualInsurance + annualOther;
+  const annualExpenseTotal = annualMgmt + annualMaintenanceReserve + annualPropTax + annualInsurance + annualOther;
+  const annualNonReserveExpense = annualMgmt + annualPropTax + annualInsurance + annualOther; // 적립 제외 비용 묶음
 
       // 세금 계산(과세소득 = 임대수익 – 비용 – 이자 – 감가상각)
       const annualDepreciation = y <= structureLifespan ? perYearDep : 0;
@@ -305,7 +312,8 @@ export function ResultCard({
       const totalTax = corporateTax + localTax;
 
       // 세후 CF (원리금 상환 포함한 현금 유출 + 세금 차감)
-      const netCashFlowAfterTax = annualRent - annualPayment - annualExpenseTotal - totalTax;
+  // CF(세후, 적립금 포함) = 임대료 - 상환 - (관리+세금+보험+기타) - 세금
+  const netCashFlowAfterTax = annualRent - annualPayment - annualNonReserveExpense - totalTax;
       cumulativeCFAfterTax += netCashFlowAfterTax;
       const loanBalance = months[months.length - 1]?.remaining ?? 0;
       const remainingValue = Math.max(0, buildingPriceYen - Math.min(y, structureLifespan) * perYearDep);
@@ -410,6 +418,8 @@ export function ResultCard({
     // 요약 합계도 동일한 기준(적립금 포함 CF = reserve 제외)으로 계산
   const mgmtRateForSum = parseFloat(formData?.managementFeeRate || '0') || 0;
   const mgmtAmountMonthlyForSum = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
+  const mgmtComRateForSum = parseFloat((formData as any)?.managementCommissionRate || '0') || 0;
+  const mgmtComAmountMonthlyForSum = (parseFloat((formData as any)?.managementCommissionFee || '0') || 0) * 10000;
     const propTaxMonthlyForSum = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
     const insuranceMonthlyForSum = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
     const otherMonthlyForSum = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
@@ -420,7 +430,9 @@ export function ResultCard({
       acc.rent += item.rent;
   const mgmtFromRate = item.rent * (mgmtRateForSum / 100);
   const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthlyForSum);
-  const nonReserveBundle = mgmtMonthly + propTaxMonthlyForSum + insuranceMonthlyForSum + otherMonthlyForSum;
+  const comFromRate = item.rent * (mgmtComRateForSum / 100);
+  const comMonthly = Math.max(comFromRate, mgmtComAmountMonthlyForSum);
+  const nonReserveBundle = mgmtMonthly + comMonthly + propTaxMonthlyForSum + insuranceMonthlyForSum + otherMonthlyForSum;
       const cfExcludingReserve = item.rent - item.payment - nonReserveBundle; // 적립금 포함(요청 정의)
       acc.cashFlow += cfExcludingReserve;
       return acc;
@@ -533,12 +545,16 @@ export function ResultCard({
                         {(() => {
                           const mgmtRate = parseFloat(formData?.managementFeeRate || '0') || 0;
                           const mgmtAmountMonthly = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
+                          const comRate = parseFloat((formData as any)?.managementCommissionRate || '0') || 0;
+                          const comAmountMonthly = (parseFloat((formData as any)?.managementCommissionFee || '0') || 0) * 10000;
                           const mgmtFromRate = item.rent * (mgmtRate / 100);
+                          const comFromRate = item.rent * (comRate / 100);
                           const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthly);
+                          const comMonthly = Math.max(comFromRate, comAmountMonthly);
                           const propTaxMonthly = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
                           const insuranceMonthly = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
                           const otherMonthly = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
-                          const nonReserveBundle = mgmtMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
+                          const nonReserveBundle = mgmtMonthly + comMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
                           const cfExcludingReserve = item.rent - item.payment - nonReserveBundle; // 요청 정의상 "적립금 포함"
                           return (
                             <>
@@ -559,15 +575,19 @@ export function ResultCard({
                       const mgmtRate = parseFloat(formData?.managementFeeRate || '0') || 0;
                       const maintRate = parseFloat(formData?.maintenanceFeeRate || '0') || 0; // 장기수선적립 비율
                       const mgmtAmountMonthly = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
+                      const comRate = parseFloat((formData as any)?.managementCommissionRate || '0') || 0;
+                      const comAmountMonthly = (parseFloat((formData as any)?.managementCommissionFee || '0') || 0) * 10000;
                       const maintAmountMonthly = (parseFloat(formData?.maintenanceFee || '0') || 0) * 10000; // 장기수선 적립 고정액
                       const mgmtFromRate = item.rent * (mgmtRate / 100);
+                      const comFromRate = item.rent * (comRate / 100);
                       const maintFromRate = item.rent * (maintRate / 100);
                       const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthly);
+                      const comMonthly = Math.max(comFromRate, comAmountMonthly);
                       const reserveMonthly = Math.max(maintFromRate, maintAmountMonthly);
                       const propTaxMonthly = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
                       const insuranceMonthly = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
                       const otherMonthly = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
-                      const nonReserveBundle = mgmtMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
+                      const nonReserveBundle = mgmtMonthly + comMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
                       const cfExcludingReserve = rentReceived - item.payment - nonReserveBundle; // 요청 정의: 적립금 포함
                       const cfDetailed = cfExcludingReserve - reserveMonthly; // 요청 정의: 적립금 제외
                       return (
@@ -584,6 +604,7 @@ export function ResultCard({
                                 </div>
                                 <div className="space-y-1 text-gray-700">
                                   <div className="flex justify-between"><span>관리비(월):</span><span>{formatCurrency(mgmtMonthly)}</span></div>
+                                  <div className="flex justify-between"><span>관리수수료(월):</span><span>{formatCurrency(comMonthly)}</span></div>
                                   <div className="flex justify-between"><span>장기수선 적립(월):</span><span>{formatCurrency(reserveMonthly)}</span></div>
                                   <div className="flex justify-between"><span>고정자산세(월):</span><span>{formatCurrency(propTaxMonthly)}</span></div>
                                   <div className="flex justify-between"><span>보험료(월):</span><span>{formatCurrency(insuranceMonthly)}</span></div>
@@ -645,7 +666,7 @@ export function ResultCard({
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">법인세</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지방세</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총세금</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">최종CF</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">최종CF(적립금 포함)</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">

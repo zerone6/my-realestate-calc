@@ -88,20 +88,20 @@ public class CalculationResult {
         @JsonProperty("month")
         private int no;
         private String date;
-    private double payment;
-    private double principal;
-    private double interest;
+        private double payment;
+        private double principal;
+        private double interest;
         @JsonProperty("remaining")
         private double balance;
         private double rent;
-    private double reserve;
+        private double reserve;
         private double cashFlow;
 
         public RepaymentSchedule() {
         }
 
-    public RepaymentSchedule(int no, String date, double payment, double principal, double interest, double balance,
-        double rent) {
+        public RepaymentSchedule(int no, String date, double payment, double principal, double interest, double balance,
+                double rent) {
             this.no = no;
             this.date = date;
             this.payment = payment;
@@ -128,19 +128,19 @@ public class CalculationResult {
             this.date = date;
         }
 
-    public double getPayment() {
+        public double getPayment() {
             return payment;
         }
 
-    public void setPayment(double payment) {
+        public void setPayment(double payment) {
             this.payment = payment;
         }
 
-    public double getPrincipal() {
+        public double getPrincipal() {
             return principal;
         }
 
-    public void setPrincipal(double principal) {
+        public void setPrincipal(double principal) {
             this.principal = principal;
         }
 

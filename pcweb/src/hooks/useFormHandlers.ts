@@ -101,6 +101,34 @@ const updateMaintenanceFeeCalculations = (newForm: FormInputData, name: string, 
   return newForm;
 }
 
+// 관리수수료와 해당 비율 상호 연동 (신규)
+const updateCommissionFeeCalculations = (newForm: FormInputData, name: string, value: string): FormInputData => {
+  const monthlyRentInManYen = parseFloat(newForm.rent) || 0; // 만엔 단위 월세
+
+  if (name === 'managementCommissionRate') {
+    const rate = parseFloat(value) || 0;
+    if (monthlyRentInManYen > 0) {
+      const feeInManYen = monthlyRentInManYen * (rate / 100);
+      return { ...newForm, managementCommissionFee: feeInManYen.toFixed(1) };
+    }
+  } else if (name === 'managementCommissionFee') {
+    const feeInManYen = parseFloat(value) || 0;
+    if (monthlyRentInManYen > 0) {
+      const rate = ((feeInManYen / monthlyRentInManYen) * 100).toFixed(1);
+      return { ...newForm, managementCommissionRate: rate };
+    }
+  } else if (name === 'rent') {
+    // 월세가 변경된 경우 비율에 따라 수수료 재계산
+    const rate = parseFloat(newForm.managementCommissionRate) || 0;
+    if (monthlyRentInManYen > 0 && rate > 0) {
+      const feeInManYen = monthlyRentInManYen * (rate / 100);
+      return { ...newForm, managementCommissionFee: feeInManYen.toFixed(1) };
+    }
+  }
+
+  return newForm;
+}
+
 // 제비용 자동 계산 업데이트 (README 공식 적용)
 const updateAcquisitionCostAutoCalculations = (newForm: FormInputData, name: string): FormInputData => {
   const price = parseFloat(newForm.price) || 0;
@@ -218,6 +246,11 @@ export const createInputChangeHandler = (
     // 수선비 관련 계산 (개선된 로직)
     if (['maintenanceFeeRate', 'maintenanceFee', 'rent'].includes(name)) {
       newForm = updateMaintenanceFeeCalculations(newForm, name, value);
+    }
+
+    // 관리수수료 관련 계산 (신규 로직)
+    if (['managementCommissionRate', 'managementCommissionFee', 'rent'].includes(name)) {
+      newForm = updateCommissionFeeCalculations(newForm, name, value);
     }
 
     setForm(newForm);

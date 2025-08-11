@@ -62,6 +62,8 @@ export interface FormInputData {
     propertyTax: string // 고정자산세+도시계획세 (만엔)
     managementFeeRate: string // 관리비 비율 (%)
     managementFee: string // 관리비 (만엔)
+    managementCommissionRate: string // 관리수수료율 (%)
+    managementCommissionFee: string // 관리수수료 (만엔)
     maintenanceFeeRate: string // 수선비 비율 (%)
     maintenanceFee: string // 수선비 (만엔)
     insurance: string // 보험료 (만엔)

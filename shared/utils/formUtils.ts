@@ -23,6 +23,9 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
     
     const managementFeeFromRateAnnual = annualRent * (safeParseFloat(form.managementFeeRate) / 100) // 円/년
     const managementFeeFromAmountAnnual = safeParseFloat(form.managementFee) * 10000 * 12 // 万円(월) → 円/년
+    // 관리수수료 (신규): 관리비와 동일한 방식으로 월 기준 계산 후 연 환산
+    const commissionFromRateAnnual = annualRent * (safeParseFloat(form.managementCommissionRate) / 100)
+    const commissionFromAmountAnnual = safeParseFloat(form.managementCommissionFee) * 10000 * 12
     const maintenanceFeeFromRateAnnual = annualRent * (safeParseFloat(form.maintenanceFeeRate) / 100) // 円/년
     const maintenanceFeeFromAmountAnnual = safeParseFloat(form.maintenanceFee) * 10000 * 12 // 万円(월) → 円/년
     const insuranceAmount = safeParseFloat(form.insurance) * 10000 // 万円 → 円 변환
@@ -31,6 +34,7 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
     const totalMaintenanceCost = 
         safeParseFloat(form.propertyTax) * 10000 + // 고정자산세 (万円 → 円)
         Math.max(managementFeeFromRateAnnual, managementFeeFromAmountAnnual) + // 관리비 (연간 円)
+        Math.max(commissionFromRateAnnual, commissionFromAmountAnnual) + // 관리수수료 (연간 円)
         Math.max(maintenanceFeeFromRateAnnual, maintenanceFeeFromAmountAnnual) + // 수선비/장기수선 적립 (연간 円)
         insuranceAmount + // 보험료 (円 단위)
         otherExpensesAmount // 기타경비 (円 단위)
@@ -89,9 +93,11 @@ export function createDefaultFormData(): FormInputData {
 
         // 수익 및 유지비 추가 항목들 (README 공식에 따른 기본값)
         propertyTax: '0', // 자동 계산될 예정
-        managementFeeRate: '5', // 매달 임대료의 5%
-        managementFee: '0',
-        maintenanceFeeRate: '5', // 매달 임대료의 5%
+    managementFeeRate: '5', // 매달 임대료의 5%
+    managementFee: '0',
+    managementCommissionRate: '5', // 기본 5%
+    managementCommissionFee: '0',
+    maintenanceFeeRate: '10', // 기본 10%
         maintenanceFee: '0',
         insurance: '0', // 보험료 기본값 0으로 수정
         otherExpenses: '0',
