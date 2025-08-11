@@ -173,12 +173,16 @@ public class CalculationService {
 
         private boolean isRentAdjustmentMonth(int monthIndex, ScheduleParams p) {
                 int fixedMonths = p.rentFixedPeriod * 12;
-                if (monthIndex <= fixedMonths) return false;
-                if (p.rentAdjustmentInterval <= 0) return false;
-                if (p.rentAdjustmentRate == 0) return false;
+                if (monthIndex <= fixedMonths)
+                        return false;
+                if (p.rentAdjustmentInterval <= 0)
+                        return false;
+                if (p.rentAdjustmentRate == 0)
+                        return false;
                 int monthsSinceEnd = monthIndex - fixedMonths;
                 int intervalMonths = p.rentAdjustmentInterval * 12;
-                if (monthsSinceEnd <= 0 || intervalMonths <= 0) return false;
+                if (monthsSinceEnd <= 0 || intervalMonths <= 0)
+                        return false;
                 return monthsSinceEnd % intervalMonths == 1;
         }
 }

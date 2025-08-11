@@ -5,6 +5,84 @@ import { createDefaultFormData, calculateTotalPurchaseCost } from '../../../shar
 import { createInputChangeHandler } from '../hooks/useFormHandlers'
 import DescriptionTooltip from './DescriptionTooltip'
 
+// 접근성 강화를 위한 공용 안내 버튼 (라벨 외부에서 툴팁 트리거)
+function InfoButton({ onClick, label }: Readonly<{ onClick: (e: React.MouseEvent) => void; label: string }>) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ml-2 inline-flex items-center text-gray-400 hover:text-blue-600 focus:outline-none"
+      aria-label={`${label} 설명 보기`}
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+      </svg>
+    </button>
+  );
+}
+
+// 내부 계산을 단순화하기 위한 유틸 함수들 (컴포넌트 외부에 선언)
+export function computeInitialMonthlyFees(src: FormInputData): FormInputData | null {
+  const rent = parseFloat(src.rent) || 0
+  const managementFeeRate = parseFloat(src.managementFeeRate) || 0
+  const maintenanceFeeRate = parseFloat(src.maintenanceFeeRate) || 0
+  const managementCommissionRate = parseFloat((src as any).managementCommissionRate) || 0
+
+  const commissionFee = (src as any).managementCommissionFee
+  const shouldRunOnce = src.managementFee === '0' && src.maintenanceFee === '0' && (commissionFee === '0' || !commissionFee)
+
+  if (!(rent > 0 && shouldRunOnce)) return null
+
+  let updated: FormInputData | null = null
+
+  if (managementFeeRate > 0) {
+    const managementFee = rent * (managementFeeRate / 100)
+    updated = { ...(updated ?? src), managementFee: managementFee.toFixed(1) }
+  }
+
+  if (maintenanceFeeRate > 0) {
+    const maintenanceFee = rent * (maintenanceFeeRate / 100)
+    updated = { ...(updated ?? src), maintenanceFee: maintenanceFee.toFixed(1) }
+  }
+
+  if (managementCommissionRate > 0) {
+    const commissionFeeCalc = rent * (managementCommissionRate / 100)
+    updated = { ...(updated ?? src), managementCommissionFee: commissionFeeCalc.toFixed(1) } as any
+  }
+
+  return updated
+}
+
+export function computeFeesOnEnterMaintenanceTab(src: FormInputData): FormInputData | null {
+  const rent = parseFloat(src.rent) || 0
+  const managementFeeRate = parseFloat(src.managementFeeRate) || 0
+  const maintenanceFeeRate = parseFloat(src.maintenanceFeeRate) || 0
+  const managementCommissionRate = parseFloat((src as any).managementCommissionRate) || 0
+
+  const shouldInitMgmt = src.managementFee === '0' && managementFeeRate > 0
+  const shouldInitMaint = src.maintenanceFee === '0' && maintenanceFeeRate > 0
+  const commissionFee = (src as any).managementCommissionFee
+  const shouldInitCommission = (commissionFee === '0' || !commissionFee) && managementCommissionRate > 0
+
+  if (!(rent > 0 && (shouldInitMgmt || shouldInitMaint || shouldInitCommission))) return null
+
+  let updated: FormInputData | null = null
+  if (shouldInitMgmt) {
+    const calc = rent * (managementFeeRate / 100)
+    updated = { ...(updated ?? src), managementFee: calc.toFixed(1) }
+  }
+  if (shouldInitMaint) {
+    const calc = rent * (maintenanceFeeRate / 100)
+    updated = { ...(updated ?? src), maintenanceFee: calc.toFixed(1) }
+  }
+  if (shouldInitCommission) {
+    const calc = rent * (managementCommissionRate / 100)
+    updated = { ...(updated ?? src), managementCommissionFee: calc.toFixed(1) } as any
+  }
+
+  return updated
+}
+
 interface FormProps {
   onCalculate: (form: FormInputData) => void
   onAutoSave: (form: FormInputData) => void
@@ -13,6 +91,7 @@ interface FormProps {
 }
 
 export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultForm, onCalculateComplete }: Readonly<FormProps>) {
+  // (컴포넌트 내부 로직 간소화) 유틸 함수는 컴포넌트 밖에서 선언
   const [form, setForm] = useState<FormInputData>(() => {
     // localStorage에서 저장된 폼 데이터 복원 시도
     try {
@@ -109,29 +188,11 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
     }
   }, [defaultForm])
 
-  // 기본값 로드 후 관리비/수선비 자동 계산 실행
+  // 기본값 로드 후 관리비/수선비/관리수수료 자동 계산 실행 (복잡도 감소)
   useEffect(() => {
-    const rent = parseFloat(form.rent) || 0;
-    const managementFeeRate = parseFloat(form.managementFeeRate) || 0;
-    const maintenanceFeeRate = parseFloat(form.maintenanceFeeRate) || 0;
-    
-    // 월세가 있고 비율이 설정된 경우에만 초기 계산 (한 번만)
-    if (rent > 0 && form.managementFee === '0' && form.maintenanceFee === '0') {
-      let updatedForm = { ...form };
-      
-      if (managementFeeRate > 0) {
-        const managementFee = rent * (managementFeeRate / 100);
-        updatedForm.managementFee = managementFee.toFixed(1);
-      }
-      
-      if (maintenanceFeeRate > 0) {
-        const maintenanceFee = rent * (maintenanceFeeRate / 100);
-        updatedForm.maintenanceFee = maintenanceFee.toFixed(1);
-      }
-      
-      setForm(updatedForm);
-    }
-  }, [form.rent, form.managementFeeRate, form.maintenanceFeeRate, form.managementFee, form.maintenanceFee])
+    const updated = computeInitialMonthlyFees(form)
+    if (updated) setForm(updated)
+  }, [form])
 
   useEffect(() => {
     const newMaxAge = STRUCTURE_LIFESPANS[form.structure];
@@ -145,19 +206,21 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
 
   const handleInputChange = createInputChangeHandler(form, setForm);
 
-  // 폼 데이터가 변경될 때마다 localStorage 저장 + 디바운스 자동 저장 트리거 (이름이 있을 때)
+  // 1) 폼 변경 시 localStorage 저장
   useEffect(() => {
     try {
       localStorage.setItem('realEstateForm', JSON.stringify(form))
     } catch (error) {
       console.warn('Failed to save form data to localStorage:', error)
     }
-    // 이름이 입력된 경우, 디바운스로 자동 저장 트리거
-    if ((form.name || '').trim() !== '') {
-      const t = setTimeout(() => onAutoSave(form), 500)
-      return () => clearTimeout(t)
-    }
   }, [form])
+
+  // 2) 폼 변경 시 디바운스 자동 저장 (이름이 있을 때만)
+  useEffect(() => {
+    if ((form.name || '').trim() === '') return
+    const t = setTimeout(() => onAutoSave(form), 500)
+    return () => clearTimeout(t)
+  }, [form, onAutoSave])
 
   // 현재 스텝이 변경될 때마다 localStorage에 저장
   useEffect(() => {
@@ -177,6 +240,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       setTooltipVisible(true)
     }
   }
+
 
   const handleCalculateClick = () => {
     autoSave() // 계산하기 전 자동 저장
@@ -225,30 +289,13 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
     setCurrentStep(step)
   }
 
-  // 유지비 탭으로 진입할 때 현재 월세와 비율을 기준으로 관리비/수선비 초기값 반영
+  // 유지비 탭 진입 시 초기값 반영 (복잡도 감소)
   useEffect(() => {
     const maintenanceIndex = steps.findIndex(s => s.key === 'maintenance')
-    if (currentStep === maintenanceIndex) {
-      const rent = parseFloat(form.rent) || 0
-      const managementFeeRate = parseFloat(form.managementFeeRate) || 0
-      const maintenanceFeeRate = parseFloat(form.maintenanceFeeRate) || 0
-      // 사용자가 아직 금액을 입력하지 않은 초기 상태('0')에서만 자동 반영
-      const shouldInitMgmt = form.managementFee === '0' && managementFeeRate > 0
-      const shouldInitMaint = form.maintenanceFee === '0' && maintenanceFeeRate > 0
-      if (rent > 0 && (shouldInitMgmt || shouldInitMaint)) {
-        const updated: FormInputData = { ...form }
-        if (shouldInitMgmt) {
-          const calc = rent * (managementFeeRate / 100)
-          updated.managementFee = calc.toFixed(1)
-        }
-        if (shouldInitMaint) {
-          const calc = rent * (maintenanceFeeRate / 100)
-          updated.maintenanceFee = calc.toFixed(1)
-        }
-        setForm(updated)
-      }
-    }
-  }, [currentStep])
+    if (currentStep !== maintenanceIndex) return
+    const updated = computeFeesOnEnterMaintenanceTab(form)
+    if (updated) setForm(updated)
+  }, [currentStep, steps, form])
 
   // 터치 관련 상태
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -306,13 +353,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 매입가와 자기자금 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="price" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('price', e)}
-          >
-            매입가 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="price" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              매입가 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('price', e)} label="매입가" />
+          </div>
           <input
             type="number"
             id="price"
@@ -324,13 +373,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="ownCapital" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('ownCapital', e)}
-          >
-            자기 자금 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="ownCapital" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              자기 자금 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('ownCapital', e)} label="자기 자금" />
+          </div>
           <input
             type="number"
             id="ownCapital"
@@ -346,13 +397,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 표면이익율, 월세수익, 연간수익 */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label 
-            htmlFor="grossYield" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('grossYield', e)}
-          >
-            표면 이익율 (%)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="grossYield" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              표면 이익율 (%)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('grossYield', e)} label="표면 이익율" />
+          </div>
           <input
             type="number"
             id="grossYield"
@@ -365,13 +418,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="rent" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('rent', e)}
-          >
-            월세 수익 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="rent" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              월세 수익 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('rent', e)} label="월세 수익" />
+          </div>
           <input
             type="number"
             id="rent"
@@ -384,9 +439,9 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="block text-sm font-medium text-gray-700 mb-1">
             연간 수익 (万円)
-          </label>
+          </div>
           <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
             {((parseFloat(form.rent) || 0) * 12).toFixed(1)}
           </div>
@@ -396,13 +451,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 구조와 내용연수 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="structure" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('structure', e)}
-          >
-            구조
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="structure" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              구조
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('structure', e)} label="구조" />
+          </div>
           <select
             id="structure"
             name="structure"
@@ -418,13 +475,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           </select>
         </div>
         <div>
-          <label 
-            htmlFor="buildingAge" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('buildingAge', e)}
-          >
-            내용연수 (년)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="buildingAge" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              내용연수 (년)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('buildingAge', e)} label="내용연수" />
+          </div>
           <input
             type="number"
             id="buildingAge"
@@ -440,13 +499,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 건물면적과 건물가격 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="buildingArea" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('buildingArea', e)}
-          >
-            건물면적 (㎡)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="buildingArea" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              건물면적 (㎡)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('buildingArea', e)} label="건물면적" />
+          </div>
           <input
             type="number"
             id="buildingArea"
@@ -458,13 +519,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="buildingPrice" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('buildingPrice', e)}
-          >
-            건물 가격 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="buildingPrice" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              건물 가격 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('buildingPrice', e)} label="건물 가격" />
+          </div>
           <input
             type="number"
             id="buildingPrice"
@@ -479,13 +542,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
 
       {/* 입주율 */}
       <div>
-        <label 
-          htmlFor="occupancyRate" 
-          className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-          onClick={(e) => handleLabelClick('occupancyRate', e)}
-        >
-          입주율 (%)
-        </label>
+        <div className="flex items-center justify-between">
+          <label 
+            htmlFor="occupancyRate" 
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            입주율 (%)
+          </label>
+          <InfoButton onClick={(e) => handleLabelClick('occupancyRate', e)} label="입주율" />
+        </div>
         <input
           type="number"
           id="occupancyRate"
@@ -507,13 +572,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="brokerageFee" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('brokerageFee', e)}
-          >
-            중개수수료 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="brokerageFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              중개수수료 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('brokerageFee', e)} label="중개수수료" />
+          </div>
           <input
             type="number"
             id="brokerageFee"
@@ -525,13 +592,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="registrationFee" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('registrationFee', e)}
-          >
-            등기비 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="registrationFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              등기비 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('registrationFee', e)} label="등기비" />
+          </div>
           <input
             type="number"
             id="registrationFee"
@@ -543,13 +612,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="acquisitionTax" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('acquisitionTax', e)}
-          >
-            부동산취득세 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="acquisitionTax" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              부동산취득세 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('acquisitionTax', e)} label="부동산취득세" />
+          </div>
           <input
             type="number"
             id="acquisitionTax"
@@ -561,13 +632,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="stampDuty" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('stampDuty', e)}
-          >
-            인지세 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="stampDuty" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              인지세 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('stampDuty', e)} label="인지세" />
+          </div>
           <input
             type="number"
             id="stampDuty"
@@ -579,13 +652,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="loanFee" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('loanFee', e)}
-          >
-            론 수수료 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="loanFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              론 수수료 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('loanFee', e)} label="론 수수료" />
+          </div>
           <input
             type="number"
             id="loanFee"
@@ -597,13 +672,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="surveyFee" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('surveyFee', e)}
-          >
-            조사비 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="surveyFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              조사비 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('surveyFee', e)} label="조사비" />
+          </div>
           <input
             type="number"
             id="surveyFee"
@@ -615,13 +692,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div className="md:col-span-2">
-          <label 
-            htmlFor="miscellaneousFees" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('miscellaneousFees', e)}
-          >
-            기타 비용 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="miscellaneousFees" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              기타 비용 (万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('miscellaneousFees', e)} label="기타 비용" />
+          </div>
           <input
             type="number"
             id="miscellaneousFees"
@@ -656,13 +735,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 월세 설정 */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label 
-            htmlFor="rentFixedPeriod" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('rentFixedPeriod', e)}
-          >
-            월세 고정 기간 (년)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="rentFixedPeriod" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              월세 고정 기간 (년)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('rentFixedPeriod', e)} label="월세 고정 기간" />
+          </div>
           <input
             type="number"
             id="rentFixedPeriod"
@@ -674,13 +755,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="rentAdjustmentInterval" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('rentAdjustmentInterval', e)}
-          >
-            월세 조정 간격 (년)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="rentAdjustmentInterval" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              월세 조정 간격 (년)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('rentAdjustmentInterval', e)} label="월세 조정 간격" />
+          </div>
           <input
             type="number"
             id="rentAdjustmentInterval"
@@ -692,13 +775,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="rentAdjustmentRate" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('rentAdjustmentRate', e)}
-          >
-            월세 하락률 (%)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="rentAdjustmentRate" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              월세 하락률 (%)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('rentAdjustmentRate', e)} label="월세 하락률" />
+          </div>
           <input
             type="number"
             id="rentAdjustmentRate"
@@ -712,15 +797,17 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         </div>
       </div>
 
-      {/* 고정자산세 */}
-      <div>
-        <label 
-          htmlFor="propertyTax" 
-          className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-          onClick={(e) => handleLabelClick('propertyTax', e)}
-        >
-          고정자산세 (万円)
-        </label>
+  {/* 고정자산세 */}
+        <div>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="propertyTax" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+      고정자산세 (연간, 万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('propertyTax', e)} label="고정자산세" />
+          </div>
         <input
           type="number"
           id="propertyTax"
@@ -735,13 +822,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 관리비 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="managementFeeRate" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('managementFeeRate', e)}
-          >
-            관리비율 (%)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="managementFeeRate" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              관리비율 (월간, %)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('managementFeeRate', e)} label="관리비율" />
+          </div>
           <input
             type="number"
             id="managementFeeRate"
@@ -754,13 +843,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="managementFee" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('managementFee', e)}
-          >
-            관리비 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="managementFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              관리비 (월간, 万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('managementFee', e)} label="관리비" />
+          </div>
           <input
             type="number"
             id="managementFee"
@@ -774,16 +865,64 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         </div>
       </div>
 
+  {/* 관리수수료 (신규) */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="managementCommissionRate" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              관리수수료율 (월간, %)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('managementCommissionRate', e)} label="관리수수료율" />
+          </div>
+          <input
+            type="number"
+            id="managementCommissionRate"
+            name="managementCommissionRate"
+            value={form.managementCommissionRate}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="5"
+            step="0.1"
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="managementCommissionFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              관리수수료 (월간, 万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('managementCommissionFee', e)} label="관리수수료" />
+          </div>
+          <input
+            type="number"
+            id="managementCommissionFee"
+            name="managementCommissionFee"
+            value={form.managementCommissionFee}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="9"
+            step="0.1"
+          />
+        </div>
+      </div>
+
   {/* 장기수선 적립 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="maintenanceFeeRate" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('maintenanceFeeRate', e)}
-          >
-    장기수선 적립 비율 (%)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="maintenanceFeeRate" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              장기수선 적립 비율 (월간, %)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('maintenanceFeeRate', e)} label="장기수선 적립 비율" />
+          </div>
           <input
             type="number"
             id="maintenanceFeeRate"
@@ -796,13 +935,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="maintenanceFee" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('maintenanceFee', e)}
-          >
-    장기수선 적립 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="maintenanceFee" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              장기수선 적립 (월간, 万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('maintenanceFee', e)} label="장기수선 적립" />
+          </div>
           <input
             type="number"
             id="maintenanceFee"
@@ -819,13 +960,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 보험료와 기타경비 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="insurance" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('insurance', e)}
-          >
-            보험료 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="insurance" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              보험료 (연간, 万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('insurance', e)} label="보험료" />
+          </div>
           <input
             type="number"
             id="insurance"
@@ -837,13 +980,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="otherExpenses" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('otherExpenses', e)}
-          >
-            기타 경비 (万円)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="otherExpenses" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              기타경비 (연간, 万円)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('otherExpenses', e)} label="기타경비" />
+          </div>
           <input
             type="number"
             id="otherExpenses"
@@ -872,13 +1017,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       {/* 금리와 대출기간 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label 
-            htmlFor="rate" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('rate', e)}
-          >
-            금리 (%)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="rate" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              금리 (%)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('rate', e)} label="금리" />
+          </div>
           <input
             type="number"
             id="rate"
@@ -891,13 +1038,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           />
         </div>
         <div>
-          <label 
-            htmlFor="term" 
-            className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-            onClick={(e) => handleLabelClick('term', e)}
-          >
-            대출 기간 (년)
-          </label>
+          <div className="flex items-center justify-between">
+            <label 
+              htmlFor="term" 
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              대출 기간 (년)
+            </label>
+            <InfoButton onClick={(e) => handleLabelClick('term', e)} label="대출 기간" />
+          </div>
           <input
             type="number"
             id="term"
@@ -912,13 +1061,15 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
 
       {/* 시작일 */}
       <div>
-        <label 
-          htmlFor="startDate" 
-          className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
-          onClick={(e) => handleLabelClick('startDate', e)}
-        >
-          시작일
-        </label>
+        <div className="flex items-center justify-between">
+          <label 
+            htmlFor="startDate" 
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            시작일
+          </label>
+          <InfoButton onClick={(e) => handleLabelClick('startDate', e)} label="시작일" />
+        </div>
         <input
           type="date"
           id="startDate"
@@ -952,28 +1103,31 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
       <div className="bg-gray-50 px-6 py-4">
         <div className="flex justify-between items-center">
           {steps.map((step, index) => (
-            <div
+            <button
               key={step.key}
-              className={`flex items-center cursor-pointer ${
-                index <= currentStep ? 'text-blue-600' : 'text-gray-400'
-              }`}
+              type="button"
+              className={`flex items-center ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`}
               onClick={() => goToStep(index)}
             >
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  index === currentStep
-                    ? 'bg-blue-600 text-white'
-                    : index < currentStep
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-gray-200 text-gray-400'
-                }`}
-              >
-                {index + 1}
-              </div>
+              {(() => {
+                let statusClass = ''
+                if (index === currentStep) {
+                  statusClass = 'bg-blue-600 text-white'
+                } else if (index < currentStep) {
+                  statusClass = 'bg-blue-100 text-blue-600'
+                } else {
+                  statusClass = 'bg-gray-200 text-gray-400'
+                }
+                return (
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${statusClass}`}>
+                    {index + 1}
+                  </div>
+                )
+              })()}
               <span className="ml-2 text-sm font-medium hidden sm:block">
                 {step.title}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
