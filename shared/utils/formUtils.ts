@@ -21,19 +21,23 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
     const monthlyRentInYen = safeParseFloat(form.rent) * 10000 // 万円 → 円 변환
     const annualRent = monthlyRentInYen * 12 // 円 단위
     
-    const managementFeeFromRate = annualRent * (safeParseFloat(form.managementFeeRate) / 100) // 円 단위
-    const managementFeeFromAmount = safeParseFloat(form.managementFee) * 10000 // 万円 → 円 변환
-    const maintenanceFeeFromRate = annualRent * (safeParseFloat(form.maintenanceFeeRate) / 100) // 円 단위
-    const maintenanceFeeFromAmount = safeParseFloat(form.maintenanceFee) * 10000 // 万円 → 円 변환
+    const managementFeeFromRateAnnual = annualRent * (safeParseFloat(form.managementFeeRate) / 100) // 円/년
+    const managementFeeFromAmountAnnual = safeParseFloat(form.managementFee) * 10000 * 12 // 万円(월) → 円/년
+    const maintenanceFeeFromRateAnnual = annualRent * (safeParseFloat(form.maintenanceFeeRate) / 100) // 円/년
+    const maintenanceFeeFromAmountAnnual = safeParseFloat(form.maintenanceFee) * 10000 * 12 // 万円(월) → 円/년
     const insuranceAmount = safeParseFloat(form.insurance) * 10000 // 万円 → 円 변환
     const otherExpensesAmount = safeParseFloat(form.otherExpenses) * 10000 // 万円 → 円 변환
     
     const totalMaintenanceCost = 
         safeParseFloat(form.propertyTax) * 10000 + // 고정자산세 (万円 → 円)
-        Math.max(managementFeeFromRate, managementFeeFromAmount) + // 관리비 (모두 円 단위)
-        Math.max(maintenanceFeeFromRate, maintenanceFeeFromAmount) + // 수선비 (모두 円 단위)
+        Math.max(managementFeeFromRateAnnual, managementFeeFromAmountAnnual) + // 관리비 (연간 円)
+        Math.max(maintenanceFeeFromRateAnnual, maintenanceFeeFromAmountAnnual) + // 수선비/장기수선 적립 (연간 円)
         insuranceAmount + // 보험료 (円 단위)
         otherExpensesAmount // 기타경비 (円 단위)
+
+    // 장기수선적립(수선비)과 기타비용 분리
+    const annualReserveExpense = Math.max(maintenanceFeeFromRateAnnual, maintenanceFeeFromAmountAnnual)
+    const annualNonReserveExpense = totalMaintenanceCost - annualReserveExpense
 
     return {
         name: form.name,
@@ -46,7 +50,9 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
         rent: monthlyRentInYen, // 円 단위로 변환된 월세
         grossYield: safeParseFloat(form.grossYield), // 사용자가 입력한 표면 이익률
         occupancyRate: safeParseFloat(form.occupancyRate),
-        expense: totalMaintenanceCost,
+    expense: totalMaintenanceCost,
+    nonReserveExpense: annualNonReserveExpense,
+    reserveExpense: annualReserveExpense,
         startDate: form.startDate,
         rentFixedPeriod: safeParseInt(form.rentFixedPeriod),
         rentAdjustmentInterval: safeParseInt(form.rentAdjustmentInterval),

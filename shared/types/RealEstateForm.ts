@@ -97,6 +97,7 @@ export interface RepaymentSchedule {
     interest: number
     remaining: number
     rent: number
+    reserve?: number
     cashFlow?: number
 }
 
@@ -137,6 +138,8 @@ export interface CalculationRequest {
     grossYield?: number         // 사용자가 입력한 표면 이익률
     occupancyRate: number
     expense: number
+    nonReserveExpense?: number   // 장기수선적립 제외한 연간 비용 (円)
+    reserveExpense?: number      // 장기수선적립 연간 금액 (円)
     startDate: string
     rentFixedPeriod: number
     rentAdjustmentInterval: number

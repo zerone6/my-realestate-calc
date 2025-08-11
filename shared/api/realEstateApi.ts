@@ -76,6 +76,7 @@ async function apiRequest<T>(
 export async function calculateRealEstate(
     request: CalculationRequest
 ): Promise<CalculationResult> {
+    // request.expense carries total annual expenses; nonReserveExpense/reserveExpense split is used when available
     return apiRequest<CalculationResult>('/calculation/calculate', {
         method: 'POST',
         body: JSON.stringify(request),

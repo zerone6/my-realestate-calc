@@ -126,7 +126,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
       }
     }
 
-    // 수선비 비율/금액 연동
+  // 장기수선 적립 비율/금액 연동
     if (name === 'maintenanceFeeRate') {
       const rate = parseFloat(value) || 0;
       const rent = parseFloat(newForm.rent) || 0;
@@ -611,7 +611,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('maintenanceFee', e)}
             >
-              수선비
+              장기수선 적립
             </label>
             <input
               name="maintenanceFee"
@@ -620,7 +620,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               max="100"
               value={form.maintenanceFee}
               onChange={handleInputChange}
-              placeholder="수선비"
+              placeholder="장기수선 적립"
               className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors h-12"
             />
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
@@ -630,7 +630,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
               onClick={(e) => handleLabelClick('maintenanceFeeRate', e)}
             >
-              수선비율
+              장기수선 적립 비율
             </label>
             <input
               name="maintenanceFeeRate"
@@ -640,7 +640,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               step="0.1"
               value={form.maintenanceFeeRate}
               onChange={handleInputChange}
-              placeholder="수선비율"
+              placeholder="장기수선 적립 비율"
               className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors h-12"
             />
             <span className="absolute right-3 top-9 text-gray-500">%</span>
@@ -706,7 +706,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">유지비 합계</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">유지·장기수선 합계</label>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">자동 계산</span>
               <span className="text-lg font-bold text-yellow-600">

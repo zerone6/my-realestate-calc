@@ -90,12 +90,12 @@ export const fieldDescriptions: Record<string, FieldDescription> = {
         description: "연간 관리비를 만엔 단위로 입력하세요. 관리비 비율을 입력하면 자동으로 계산됩니다."
     },
     repairCost: {
-        label: "수선비",
-        description: "연간 수선비를 만엔 단위로 입력하세요. 건물 유지보수에 필요한 비용입니다."
+    label: "장기수선 적립",
+    description: "월간 장기수선 적립금을 만엔 단위로 입력하세요. 실제 지출이 아닌 적립금으로 취급합니다."
     },
     repairCostRate: {
-        label: "수선비 비율",
-        description: "연간 임대료 수익 대비 수선비 비율을 백분율로 입력하세요. 수선비를 입력하면 자동으로 계산됩니다."
+    label: "장기수선 적립 비율",
+    description: "월세 대비 장기수선 적립 비율(%)을 입력하세요. 적립금 또는 비율 중 더 큰 값을 사용합니다."
     },
     otherExpenses: {
         label: "기타경비",

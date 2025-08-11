@@ -73,7 +73,7 @@ const updateManagementFeeCalculations = (newForm: FormInputData, name: string, v
   return newForm;
 }
 
-// 수선비와 수선비율 상호 연동
+// 수선비(=장기수선적립)와 해당 비율 상호 연동
 const updateMaintenanceFeeCalculations = (newForm: FormInputData, name: string, value: string): FormInputData => {
   const monthlyRentInManYen = parseFloat(newForm.rent) || 0; // 만엔 단위 월세
 

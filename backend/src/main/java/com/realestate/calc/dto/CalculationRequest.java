@@ -42,6 +42,10 @@ public class CalculationRequest {
     @NotNull(message = "연간 유지비는 필수입니다")
     private Double expense;
 
+    // 장기수선적립을 분리하기 위한 필드 (선택)
+    private Double nonReserveExpense; // 장기수선 제외 연간 비용 (원)
+    private Double reserveExpense;    // 장기수선 적립 연간 금액 (원)
+
     private String startDate;
 
     @JsonProperty("occupancyRate")
@@ -129,6 +133,22 @@ public class CalculationRequest {
 
     public void setExpense(Double expense) {
         this.expense = expense;
+    }
+
+    public Double getNonReserveExpense() {
+        return nonReserveExpense;
+    }
+
+    public void setNonReserveExpense(Double nonReserveExpense) {
+        this.nonReserveExpense = nonReserveExpense;
+    }
+
+    public Double getReserveExpense() {
+        return reserveExpense;
+    }
+
+    public void setReserveExpense(Double reserveExpense) {
+        this.reserveExpense = reserveExpense;
     }
 
     public String getStartDate() {

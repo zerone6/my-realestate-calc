@@ -93,7 +93,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   const steps = [
     { title: '물건 정보', key: 'property' },
     { title: '제비용', key: 'acquisition' },
-    { title: '유지비', key: 'maintenance' },
+  { title: '유지·장기수선', key: 'maintenance' },
     { title: '대출 정보', key: 'loan' }
   ]
 
@@ -651,7 +651,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
 
   const renderMaintenanceCosts = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">유지비</h3>
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">유지·장기수선</h3>
       
       {/* 월세 설정 */}
       <div className="grid grid-cols-3 gap-4">
@@ -774,7 +774,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         </div>
       </div>
 
-      {/* 수선비 */}
+  {/* 장기수선 적립 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label 
@@ -782,7 +782,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
             className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
             onClick={(e) => handleLabelClick('maintenanceFeeRate', e)}
           >
-            수선비율 (%)
+    장기수선 적립 비율 (%)
           </label>
           <input
             type="number"
@@ -801,7 +801,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
             className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600"
             onClick={(e) => handleLabelClick('maintenanceFee', e)}
           >
-            수선비 (万円)
+    장기수선 적립 (万円)
           </label>
           <input
             type="number"
