@@ -262,9 +262,7 @@ export function ResultCard({
 
   const computeYearlyFlows = (): YearlyFlow[] => {
     if (!formData || !schedule.length) return [];
-    const termYears = Math.max(1, parseInt(formData.term || '1', 10));
-    const occRate = parseFloat(formData.occupancyRate || '100') || 100;
-    const occ = occRate / 100;
+  const termYears = Math.max(1, parseInt(formData.term || '1', 10));
     const mgmtRate = parseFloat(formData.managementFeeRate || '0') || 0;
     const maintRate = parseFloat(formData.maintenanceFeeRate || '0') || 0;
     const mgmtFixedMonthly = (parseFloat(formData.managementFee || '0') || 0) * 10000;
@@ -285,7 +283,7 @@ export function ResultCard({
       const yearEnd = Math.min(y * 12, schedule.length);
       const months = schedule.slice(yearStart, yearEnd);
       if (!months.length) break;
-      const annualRent = months.reduce((s, m) => s + m.rent * occ, 0);
+  const annualRent = months.reduce((s, m) => s + m.rent, 0);
       const annualPayment = months.reduce((s, m) => s + m.payment, 0);
       const annualPrincipal = months.reduce((s, m) => s + m.principal, 0);
       const annualInterest = months.reduce((s, m) => s + m.interest, 0);
@@ -409,14 +407,24 @@ export function ResultCard({
     const endIndex = startIndex + itemsPerPage;
     const currentSchedule = schedule.slice(startIndex, endIndex);
 
+    // 요약 합계도 동일한 기준(적립금 포함 CF = reserve 제외)으로 계산
+  const mgmtRateForSum = parseFloat(formData?.managementFeeRate || '0') || 0;
+  const mgmtAmountMonthlyForSum = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
+    const propTaxMonthlyForSum = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
+    const insuranceMonthlyForSum = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
+    const otherMonthlyForSum = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
     const annualSummary = currentSchedule.reduce((acc, item) => {
       acc.payment += item.payment;
       acc.principal += item.principal;
       acc.interest += item.interest;
       acc.rent += item.rent;
-      acc.cashFlow += item.cashFlow || 0;
+  const mgmtFromRate = item.rent * (mgmtRateForSum / 100);
+  const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthlyForSum);
+  const nonReserveBundle = mgmtMonthly + propTaxMonthlyForSum + insuranceMonthlyForSum + otherMonthlyForSum;
+      const cfExcludingReserve = item.rent - item.payment - nonReserveBundle; // 적립금 포함(요청 정의)
+      acc.cashFlow += cfExcludingReserve;
       return acc;
-    }, { payment: 0, principal: 0, interest: 0, rent: 0, cashFlow: 0 });
+    }, { payment: 0 as number, principal: 0 as number, interest: 0 as number, rent: 0 as number, cashFlow: 0 as number });
 
     return (
       <div className="space-y-4">
@@ -455,11 +463,11 @@ export function ResultCard({
               <tr>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">회차</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상환일</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">추정 월세</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">월세(입주율반영)</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">월 상환금</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">원금</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이자</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CF</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CF(적립금 포함)</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대출 잔액</th>
               </tr>
             </thead>
@@ -522,8 +530,23 @@ export function ResultCard({
                         <span className="hidden lg:inline">{formatCurrency(item.interest)}</span>
                       </td>
                       <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
-                        <span className="lg:hidden">{formatCurrency(item.cashFlow || 0, true)}</span>
-                        <span className="hidden lg:inline">{formatCurrency(item.cashFlow || 0)}</span>
+                        {(() => {
+                          const mgmtRate = parseFloat(formData?.managementFeeRate || '0') || 0;
+                          const mgmtAmountMonthly = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
+                          const mgmtFromRate = item.rent * (mgmtRate / 100);
+                          const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthly);
+                          const propTaxMonthly = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
+                          const insuranceMonthly = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
+                          const otherMonthly = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
+                          const nonReserveBundle = mgmtMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
+                          const cfExcludingReserve = item.rent - item.payment - nonReserveBundle; // 요청 정의상 "적립금 포함"
+                          return (
+                            <>
+                              <span className="lg:hidden">{formatCurrency(cfExcludingReserve, true)}</span>
+                              <span className="hidden lg:inline">{formatCurrency(cfExcludingReserve)}</span>
+                            </>
+                          )
+                        })()}
                       </td>
                       <td className="px-2 lg:px-3 py-2 whitespace-nowrap text-xs lg:text-sm">
                         <span className="lg:hidden">{formatCurrency(item.remaining, true)}</span>
@@ -531,21 +554,22 @@ export function ResultCard({
                       </td>
                     </tr>
                     {isSelected && (() => {
-                      const occRate = parseFloat(formData?.occupancyRate || '100') || 100;
-                      const rentReceived = item.rent * (occRate / 100);
+                      // 서버 스케줄 rent는 이미 입주율을 반영한 유효 월세 값
+                      const rentReceived = item.rent;
                       const mgmtRate = parseFloat(formData?.managementFeeRate || '0') || 0;
-                      const maintRate = parseFloat(formData?.maintenanceFeeRate || '0') || 0;
+                      const maintRate = parseFloat(formData?.maintenanceFeeRate || '0') || 0; // 장기수선적립 비율
                       const mgmtAmountMonthly = (parseFloat(formData?.managementFee || '0') || 0) * 10000;
-                      const maintAmountMonthly = (parseFloat(formData?.maintenanceFee || '0') || 0) * 10000;
+                      const maintAmountMonthly = (parseFloat(formData?.maintenanceFee || '0') || 0) * 10000; // 장기수선 적립 고정액
                       const mgmtFromRate = item.rent * (mgmtRate / 100);
                       const maintFromRate = item.rent * (maintRate / 100);
                       const mgmtMonthly = Math.max(mgmtFromRate, mgmtAmountMonthly);
-                      const maintMonthly = Math.max(maintFromRate, maintAmountMonthly);
+                      const reserveMonthly = Math.max(maintFromRate, maintAmountMonthly);
                       const propTaxMonthly = (parseFloat(formData?.propertyTax || '0') || 0) * 10000 / 12;
                       const insuranceMonthly = (parseFloat(formData?.insurance || '0') || 0) * 10000 / 12;
                       const otherMonthly = (parseFloat(formData?.otherExpenses || '0') || 0) * 10000 / 12;
-                      const maintenanceBundle = mgmtMonthly + maintMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
-                      const cfDetailed = rentReceived - item.payment - maintenanceBundle;
+                      const nonReserveBundle = mgmtMonthly + propTaxMonthly + insuranceMonthly + otherMonthly;
+                      const cfExcludingReserve = rentReceived - item.payment - nonReserveBundle; // 요청 정의: 적립금 포함
+                      const cfDetailed = cfExcludingReserve - reserveMonthly; // 요청 정의: 적립금 제외
                       return (
                         <tr className="bg-blue-50">
                           <td colSpan={8} className="px-2 lg:px-3 py-3">
@@ -553,21 +577,22 @@ export function ResultCard({
                               <div className="font-semibold text-gray-800">{item.month}회차 월간 상세 캐시플로우</div>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 <div className="space-y-1 text-gray-700">
-                                  <div className="flex justify-between"><span>입금 월세(입주율 {occRate}%):</span><span>{formatCurrency(rentReceived)}</span></div>
+                                  <div className="flex justify-between"><span>입금 월세(입주율 반영):</span><span>{formatCurrency(rentReceived)}</span></div>
                                   <div className="flex justify-between"><span>대출 상환금:</span><span>{formatCurrency(item.payment)}</span></div>
                                   <div className="flex justify-between"><span>원금:</span><span>{formatCurrency(item.principal)}</span></div>
                                   <div className="flex justify-between"><span>이자:</span><span>{formatCurrency(item.interest)}</span></div>
                                 </div>
                                 <div className="space-y-1 text-gray-700">
                                   <div className="flex justify-between"><span>관리비(월):</span><span>{formatCurrency(mgmtMonthly)}</span></div>
-                                  <div className="flex justify-between"><span>수선비(월):</span><span>{formatCurrency(maintMonthly)}</span></div>
+                                  <div className="flex justify-between"><span>장기수선 적립(월):</span><span>{formatCurrency(reserveMonthly)}</span></div>
                                   <div className="flex justify-between"><span>고정자산세(월):</span><span>{formatCurrency(propTaxMonthly)}</span></div>
                                   <div className="flex justify-between"><span>보험료(월):</span><span>{formatCurrency(insuranceMonthly)}</span></div>
                                   <div className="flex justify-between"><span>기타경비(월):</span><span>{formatCurrency(otherMonthly)}</span></div>
                                 </div>
                                 <div className="space-y-1 text-gray-700">
-                                  <div className="flex justify-between font-medium border-t pt-1"><span>유지·세금 묶음:</span><span>{formatCurrency(maintenanceBundle)}</span></div>
-                                  <div className="flex justify-between font-bold text-blue-600"><span>월간 CF:</span><span>{formatCurrency(cfDetailed)}</span></div>
+                                  <div className="flex justify-between font-medium border-t pt-1"><span>유지·세금 묶음(적립 제외):</span><span>{formatCurrency(nonReserveBundle)}</span></div>
+                                  <div className="flex justify-between font-bold text-blue-600"><span>월간 CF(적립금 포함):</span><span>{formatCurrency(cfExcludingReserve)}</span></div>
+                                  <div className="flex justify-between"><span>월간 CF(적립금 제외):</span><span>{formatCurrency(cfDetailed)}</span></div>
                                   <div className="flex justify-between text-gray-500"><span>대출 잔액:</span><span>{formatCurrency(item.remaining)}</span></div>
                                 </div>
                               </div>
@@ -794,8 +819,8 @@ export function ResultCard({
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">원금</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이자</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리비</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">수선비 적립</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">수선비 지출</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">장기수선 적립</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">장기수선 지출</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세금·보험·기타</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간비용계</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간CF</th>

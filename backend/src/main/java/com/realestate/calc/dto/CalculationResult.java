@@ -14,20 +14,10 @@ public class CalculationResult {
     private List<RepaymentSchedule> repaymentSchedule; // schedule → repaymentSchedule 변경
 
     public CalculationResult() {
+        // Default constructor for Jackson deserialization and manual property setting.
     }
 
-    public CalculationResult(String monthlyPayment, String yearlyIncome, String yearlyCost,
-            String yearlyProfit, String yieldPercent, String grossYield, String equityYield,
-            List<RepaymentSchedule> repaymentSchedule) {
-        this.monthlyPayment = monthlyPayment;
-        this.yearlyIncome = yearlyIncome;
-        this.yearlyCost = yearlyCost;
-        this.yearlyProfit = yearlyProfit;
-        this.yieldPercent = yieldPercent;
-        this.grossYield = grossYield;
-        this.equityYield = equityYield;
-        this.repaymentSchedule = repaymentSchedule;
-    }
+    // Use default constructor and setters to reduce constructor parameter count.
 
     // Getters and Setters
     public String getMonthlyPayment() {
@@ -98,19 +88,20 @@ public class CalculationResult {
         @JsonProperty("month")
         private int no;
         private String date;
-        private int payment;
-        private int principal;
-        private double interest;
+    private double payment;
+    private double principal;
+    private double interest;
         @JsonProperty("remaining")
         private double balance;
         private double rent;
+    private double reserve;
         private double cashFlow;
 
         public RepaymentSchedule() {
         }
 
-        public RepaymentSchedule(int no, String date, int payment, int principal, double interest, double balance,
-                double rent) {
+    public RepaymentSchedule(int no, String date, double payment, double principal, double interest, double balance,
+        double rent) {
             this.no = no;
             this.date = date;
             this.payment = payment;
@@ -137,19 +128,19 @@ public class CalculationResult {
             this.date = date;
         }
 
-        public int getPayment() {
+    public double getPayment() {
             return payment;
         }
 
-        public void setPayment(int payment) {
+    public void setPayment(double payment) {
             this.payment = payment;
         }
 
-        public int getPrincipal() {
+    public double getPrincipal() {
             return principal;
         }
 
-        public void setPrincipal(int principal) {
+    public void setPrincipal(double principal) {
             this.principal = principal;
         }
 
@@ -183,6 +174,14 @@ public class CalculationResult {
 
         public void setCashFlow(double cashFlow) {
             this.cashFlow = cashFlow;
+        }
+
+        public double getReserve() {
+            return reserve;
+        }
+
+        public void setReserve(double reserve) {
+            this.reserve = reserve;
         }
     }
 }
