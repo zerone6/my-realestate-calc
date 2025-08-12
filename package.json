@@ -2,6 +2,7 @@
   "name": "my-realestate-calc",
   "version": "1.0.0",
   "description": "Real estate calculation application with shared utilities",
+  "packageManager": "npm@11.3.0",
   "workspaces": [
     "shared",
     "pcweb"
