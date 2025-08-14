@@ -30,6 +30,8 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
     const maintenanceFeeFromAmountAnnual = safeParseFloat(form.maintenanceFee) * 10000 * 12 // 万円(월) → 円/년
     const insuranceAmount = safeParseFloat(form.insurance) * 10000 // 万円 → 円 변환
     const otherExpensesAmount = safeParseFloat(form.otherExpenses) * 10000 // 万円 → 円 변환
+    // 기타비용2: 요청에 따라 연간 비용에도 포함 (입력은 万円 단위)
+    const otherMiscAnnual = safeParseFloat(form.otherMiscellaneousFees || '0') * 10000 // 万円 → 円
     
     const totalMaintenanceCost = 
         safeParseFloat(form.propertyTax) * 10000 + // 고정자산세 (万円 → 円)
@@ -37,10 +39,12 @@ export function convertFormToRequest(form: FormInputData): CalculationRequest {
         Math.max(commissionFromRateAnnual, commissionFromAmountAnnual) + // 관리수수료 (연간 円)
         Math.max(maintenanceFeeFromRateAnnual, maintenanceFeeFromAmountAnnual) + // 수선비/장기수선 적립 (연간 円)
         insuranceAmount + // 보험료 (円 단위)
-        otherExpensesAmount // 기타경비 (円 단위)
+        otherExpensesAmount + // 기타경비 (円 단위)
+        otherMiscAnnual // 기타비용2 (연간 포함)
 
     // 장기수선적립(수선비)과 기타비용 분리
     const annualReserveExpense = Math.max(maintenanceFeeFromRateAnnual, maintenanceFeeFromAmountAnnual)
+    // totalMaintenanceCost 이미 기타비용2 포함
     const annualNonReserveExpense = totalMaintenanceCost - annualReserveExpense
 
     return {
@@ -109,7 +113,8 @@ export function createDefaultFormData(): FormInputData {
         stampDuty: '0',
         loanFee: '0',
         surveyFee: '0',
-        miscellaneousFees: '0'
+    miscellaneousFees: '0',
+    otherMiscellaneousFees: '0'
     }
 }
 
@@ -125,7 +130,8 @@ export function calculateTotalPurchaseCost(form: FormInputData): number {
         form.stampDuty,
         form.loanFee,
         form.surveyFee,
-        form.miscellaneousFees
+        form.miscellaneousFees,
+        form.otherMiscellaneousFees || '0'
     ].reduce((sum, cost) => sum + safeParseFloat(cost), 0)
     
     return price + acquisitionCosts
@@ -240,7 +246,8 @@ export function calculateTotalAcquisitionCosts(form: FormInputData): number {
         form.stampDuty,
         form.loanFee,
         form.surveyFee,
-        form.miscellaneousFees
+        form.miscellaneousFees,
+        form.otherMiscellaneousFees || '0'
     ].reduce((sum, cost) => sum + safeParseFloat(cost), 0)
 }
 
