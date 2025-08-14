@@ -168,7 +168,7 @@ function CalculatorApp() {
 
   // 임시 탭 컴포넌트들
   const RouteInfoTab = () => (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6">
+  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
       <div className="text-center py-20">
         <div className="text-6xl mb-4">�</div>
         <h2 className="text-2xl font-bold mb-4">노선가 정보</h2>
@@ -181,7 +181,7 @@ function CalculatorApp() {
   )
 
   const AreaInfoTab = () => (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6">
+  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
       <div className="text-center py-20">
         <div className="text-6xl mb-4">🏢</div>
         <h2 className="text-2xl font-bold mb-4">주변 정보</h2>
@@ -194,7 +194,7 @@ function CalculatorApp() {
   )
 
   const MarketTrendTab = () => (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6">
+  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
       <div className="text-center py-20">
         <div className="text-6xl mb-4">�</div>
         <h2 className="text-2xl font-bold mb-4">시세 동향</h2>

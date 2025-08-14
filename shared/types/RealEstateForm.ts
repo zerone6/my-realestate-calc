@@ -77,6 +77,7 @@ export interface FormInputData {
     loanFee: string // 대출수수료
     surveyFee: string // 감정비용
     miscellaneousFees: string // 잡비
+    otherMiscellaneousFees?: string // 추가 기타비용2 (제비용 확장)
 }
 
 // API response types
