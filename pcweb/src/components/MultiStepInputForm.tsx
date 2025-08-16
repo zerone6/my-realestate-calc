@@ -208,7 +208,8 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   return (
     <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md overflow-hidden">
       {/* Step indicator */}
-      <div className="bg-gray-50 px-6 py-4 flex flex-wrap gap-4">
+      <div className="bg-gray-50 px-6 py-4 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-wrap gap-4">
         {steps.map((s,i)=>{
           const active=i===currentStep; const done=i<currentStep
           let circleClass='bg-gray-200 text-gray-400'
@@ -223,6 +224,14 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
               <span className={`text-sm font-medium ${textClass}`}>{s.title}</span>
             </button>
           )})}
+        </div>
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={()=> window.dispatchEvent(new CustomEvent('exportPdf'))}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-sm font-medium shadow"
+          >PDF로 저장</button>
+        </div>
       </div>
 
       <div className="p-6 space-y-6">

@@ -1,4 +1,6 @@
-import { useState, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
+import jsPDF from 'jspdf';
+import { registerPretendardFont } from '../utils/pdfFonts';
 import { RepaymentSchedule, TaxCalculation, FormInputData } from '../../../shared/types/RealEstateForm';
 
 // 연간 자금 흐름 타입 (공용)
@@ -32,73 +34,80 @@ type YearlyFlow = {
   netProceedsAfterTax: number; // 세후 실수령액
 };
 
-// 간단한 멀티 라인 차트 (SVG)
+// 멀티 라인 차트 (요구된 6개 지표 + 단위 스케일 & 스크롤)
 const YearlyMultiLineChart = ({ data }: { data: YearlyFlow[] }) => {
-  const [visible, setVisible] = useState<Record<string, boolean>>({
-    annualPayment: true,
-    loanBalance: true,
-    netCashFlowAfterTax: true,
-    cumulativeCFAfterTax: true,
-    salePrice: false,
-    netProceedsAfterTax: false,
-  });
-  const toggleSeries = (key: string) => setVisible(v => ({ ...v, [key]: !v[key] }));
-  const series = [
-    { key: 'annualPayment', label: '대출 상환 총합', color: '#10b981' },
-    { key: 'loanBalance', label: '대출 잔액', color: '#6b7280' },
-    { key: 'netCashFlowAfterTax', label: '연간 CF(세후·적립금 포함)', color: '#ef4444' },
-    { key: 'cumulativeCFAfterTax', label: '누적 CF(세후)', color: '#8b5cf6' },
-    { key: 'salePrice', label: '매각가', color: '#2563eb' },
-    { key: 'netProceedsAfterTax', label: '매각 후 실수령액(세후)', color: '#f59e0b' },
+  // 시리즈 정의 (요청 항목만)
+  const rawSeries = [
+    { key: 'netCashFlowAfterTax', label: '연간 CF(세후)', color: '#ef4444', getter: (d:YearlyFlow)=> d.netCashFlowAfterTax },
+    { key: 'cumulativeCFAfterTax', label: '누적 CF', color: '#8b5cf6', getter: (d:YearlyFlow)=> d.cumulativeCFAfterTax },
+    { key: 'loanBalance', label: '대출잔액', color: '#6b7280', getter: (d:YearlyFlow)=> d.loanBalance },
+    { key: 'netProceedsAfterTax', label: '매각 순현금', color: '#10b981', getter: (d:YearlyFlow)=> d.netProceedsAfterTax }
   ] as const;
-  const activeKeys = series.filter(s => visible[s.key]).map(s => s.key);
-  const values = data.flatMap(d => activeKeys.map(k => (d as any)[k] as number));
-  const maxY = Math.max(1, ...values, 0);
-  const minY = Math.min(0, ...values);
-  const width = 800; const height = 280; const pad = 36; const innerW = width - pad * 2; const innerH = height - pad * 2;
-  const x = (i: number) => {
-    if (data.length <= 1) return pad + innerW / 2;
-    return pad + (i / (data.length - 1)) * innerW;
-  };
-  const y = (v: number) => pad + innerH - ((v - minY) / (maxY - minY)) * innerH;
-  const pathFor = (key: string) => data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y((d as any)[key])}`).join(' ');
-  const ticks = 5; const yTicks = Array.from({ length: ticks + 1 }, (_, i) => minY + (i * (maxY - minY)) / ticks);
+  const [visible, setVisible] = useState<Record<string, boolean>>(()=> rawSeries.reduce((m,s)=>{m[s.key]= true; return m;}, {} as Record<string, boolean>));
+  const [scaleKey, setScaleKey] = useState<'円' | '천円' | '万円' | '백만円'>('万円');
+  const scales: Record<typeof scaleKey, number> = { '円':1, '천円':1000, '万円':10000, '백만円':1000000 };
+  const scale = scales[scaleKey];
+  const toggleSeries = (key:string)=> setVisible(v=>({...v,[key]:!v[key]}));
+
+  // 가로 스크롤 폭 (연차 많으면 자동 확장)
+  const baseColWidth = 70; // 연 차트 간격
+  const width = Math.max(900, data.length * baseColWidth);
+  const height = 320; const padLeft = 48; const padRight=16; const padTop=24; const padBottom=40;
+  const innerW = width - padLeft - padRight; const innerH = height - padTop - padBottom;
+  const activeSeries = rawSeries.filter(s=> visible[s.key]);
+  const values = data.flatMap(d => activeSeries.map(s=> s.getter(d)/scale));
+  const maxYRaw = values.length? Math.max(...values):1;
+  const minYRaw = Math.min(0, ...(values.length? values:[0]));
+  // 축 라벨 수 동적 (값 차이가 클 때 여유)
+  const ticks = 5;
+  const yTicks = Array.from({length: ticks+1}, (_,i)=> minYRaw + (i*(maxYRaw-minYRaw))/ticks);
+  const x = (i:number)=> padLeft + (data.length<=1? innerW/2 : (i/(data.length-1))*innerW);
+  const y = (v:number)=> padTop + innerH - ((v - minYRaw)/(maxYRaw-minYRaw||1))*innerH;
+  const pathFor = (sKey:string)=> data.map((d,i)=> `${i===0?'M':'L'} ${x(i)} ${y(((rawSeries.find(r=>r.key===sKey)!) .getter(d))/scale)}`).join(' ');
+
   return (
     <div className="w-full overflow-x-auto">
-      <div className="flex flex-wrap gap-3 mb-2">
-        {series.map(s => (
-          <label key={s.key} className="inline-flex items-center gap-2 text-xs lg:text-sm">
-            <input type="checkbox" checked={visible[s.key]} onChange={() => toggleSeries(s.key)} />
-            <span className="inline-flex items-center">
-              <span className="w-3 h-3 rounded-sm mr-1" style={{ backgroundColor: s.color }} />{s.label}
-            </span>
-          </label>
-        ))}
+      <div className="flex flex-wrap items-center gap-4 mb-3 text-xs lg:text-sm">
+        <div className="flex flex-wrap gap-3">
+          {rawSeries.map(s=> (
+            <label key={s.key} className="inline-flex items-center gap-1 cursor-pointer select-none">
+              <input type="checkbox" checked={visible[s.key]} onChange={()=>toggleSeries(s.key)} />
+              <span className="inline-flex items-center">
+                <span className="w-3 h-3 rounded-sm mr-1" style={{backgroundColor:s.color}} />{s.label}
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-gray-500">단위:</span>
+          <select value={scaleKey} onChange={e=> setScaleKey(e.target.value as any)} className="border rounded px-1 py-0.5 text-xs">
+            {Object.keys(scales).map(k=> <option key={k} value={k}>{k}</option>)}
+          </select>
+        </div>
+        <div className="text-gray-400">(표시 값 ÷ {scale.toLocaleString()})</div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full max-w-full">
-        {/* Y grid */}
-        {yTicks.map((tv) => (
-          <g key={tv}>
-            <line x1={pad} x2={width - pad} y1={y(tv)} y2={y(tv)} stroke="#e5e7eb" strokeWidth={1} />
-            <text x={4} y={y(tv) + 4} fontSize={10} fill="#6b7280">{Math.round(tv).toLocaleString()}</text>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{minWidth: width}}>
+        {/* Y Grid & labels */}
+        {yTicks.map(t => (
+          <g key={t}>
+            <line x1={padLeft} x2={width-padRight} y1={y(t)} y2={y(t)} stroke="#e5e7eb" strokeWidth={1} />
+            <text x={8} y={y(t)+4} fontSize={10} fill="#6b7280">{Math.round(t).toLocaleString()}</text>
           </g>
         ))}
-        {/* X ticks */}
-        {data.map((d, i) => (
+        {/* X Axis & ticks */}
+        {data.map((d,i)=> (
           <g key={d.year}>
-            <line x1={x(i)} x2={x(i)} y1={height - pad} y2={height - pad + 4} stroke="#9ca3af" />
-            {(i % 5 === 0 || i === data.length - 1) && (
-              <text x={x(i)} y={height - 4} fontSize={10} textAnchor="middle" fill="#6b7280">{d.year}</text>
+            <line x1={x(i)} x2={x(i)} y1={height - padBottom} y2={height - padBottom + 5} stroke="#9ca3af" />
+            {(i%5===0 || i===data.length-1) && (
+              <text x={x(i)} y={height - 8} fontSize={10} textAnchor="middle" fill="#6b7280">{d.year}</text>
             )}
           </g>
         ))}
         {/* Axes */}
-        <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} stroke="#9ca3af" />
-        <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke="#9ca3af" />
+        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} stroke="#9ca3af" />
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} stroke="#9ca3af" />
         {/* Lines */}
-        {series.filter(s => visible[s.key]).map(s => (
-          <path key={s.key} d={pathFor(s.key)} fill="none" stroke={s.color} strokeWidth={2} />
-        ))}
+        {activeSeries.map(s=> <path key={s.key} d={pathFor(s.key)} fill="none" stroke={s.color} strokeWidth={2} />)}
       </svg>
     </div>
   );
@@ -389,7 +398,7 @@ export function ResultCard({
 
         {yearly.length > 0 && (
           <div className="mt-4">
-            <h4 className="text-sm lg:text-base font-semibold mb-2">연간 자금 흐름 비교 그래프</h4>
+            <h4 className="text-sm lg:text-base font-semibold mb-2">주요 지표 추이</h4>
             <YearlyMultiLineChart data={yearly} />
           </div>
         )}
@@ -479,7 +488,7 @@ export function ResultCard({
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">월 상환금</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">원금</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이자</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CF(적립금 포함)</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상환 후 잔액</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대출 잔액</th>
               </tr>
             </thead>
@@ -661,12 +670,12 @@ export function ResultCard({
               <tr>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연차</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간수입</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지출계</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">운영비용 합계</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">과세소득</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">법인세</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지방세</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총세금</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">최종CF(적립금 포함)</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세후 CF</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -812,76 +821,99 @@ export function ResultCard({
     );
   };
 
-  // 기타 탭 렌더링
+  // 매각 계획(간소화 + IRR & Equity Multiple 추가)
   const renderOtherTab = () => {
     if (!formData || !schedule.length) {
       return (
         <div className="space-y-4">
-          <h3 className="text-base lg:text-lg font-bold">기타</h3>
-          <p className="text-sm lg:text-base">연간 자금 흐름을 계산할 데이터가 부족합니다.</p>
+          <h3 className="text-base lg:text-lg font-bold">매각 계획</h3>
+          <p className="text-sm lg:text-base">데이터가 부족합니다.</p>
         </div>
       );
     }
     const years = computeYearlyFlows();
+    // 초기 투자 (자기자본 + 제비용)
+    const acquisitionCosts = [
+      formData.brokerageFee, formData.registrationFee, formData.acquisitionTax, formData.stampDuty,
+      formData.loanFee, formData.surveyFee, formData.miscellaneousFees, (formData as any).otherMiscellaneousFees || '0'
+    ].reduce((s,c)=> s + (parseFloat(c)||0),0) * 10000;
+    const initialEquity = (parseFloat(formData.ownCapital)||0)*10000 + acquisitionCosts;
+
+    // IRR 계산 함수
+    const calcIRR = (flows:number[]): number | null => {
+      let guess = 0.08; // 8%
+      for(let i=0;i<50;i++){
+        let npv=0; let dnpv=0;
+        flows.forEach((cf,t)=>{ const denom=Math.pow(1+guess,t); npv+=cf/denom; dnpv+= -t*cf/denom/(1+guess); });
+        if(Math.abs(npv) < 1) return guess*100;
+        const next = guess - npv/dnpv;
+        if(!isFinite(next) || next<=-0.9999) break;
+        guess = next;
+      }
+      return null;
+    };
+
+    const saleRows = years.map(y=>{
+      const annualCF = y.netCashFlowAfterTax; // 세후 CF
+      const cumulativeCF = y.cumulativeCFAfterTax;
+      const loanBal = y.loanBalance;
+      const saleValue = y.salePrice; // 매각가 추정(경로)
+      const sellingFee = y.sellingFee + y.capitalGainsTax; // 중개수수료 + 양도세(세금 등)
+      const netSaleProceeds = Math.max(0, saleValue - sellingFee - loanBal); // 순현금 (세후)
+      // IRR & Equity Multiple (매각을 해당 연차에 한다 가정)
+      const flows: number[] = [-initialEquity];
+      for(let t=0;t<y.year-1;t++){ flows.push(years[t].netCashFlowAfterTax); }
+      // 매각 연도 CF + 순매각 현금 동시 수령
+      flows.push(annualCF + netSaleProceeds);
+      const irr = initialEquity>0 ? calcIRR(flows) : null;
+      const equityMultiple = initialEquity>0 ? (flows.slice(1).reduce((s,c)=>s+c,0) / initialEquity) : null;
+      return { year:y.year, annualCF, cumulativeCF, loanBal, saleValue, sellingFee, netSaleProceeds, irr, equityMultiple };
+    });
 
     return (
       <div className="space-y-4">
-        <h3 className="text-base lg:text-lg font-bold">연간 자금 흐름 테이블</h3>
-        <p className="text-xs text-gray-500">
-          수선비는 매년 적립하여 10/20/30년차에 사용합니다. 매각 순현금은 건물가치 기준(3% 매각비용 가정) − 대출잔액입니다.
-        </p>
+        <h3 className="text-base lg:text-lg font-bold">매각 계획 (Holding 별 지표)</h3>
+        <p className="text-xs text-gray-500">IRR은 해당 연도 말 매각 가정 (초기 투자 = 자기자본 + 제비용). 매각 비용 = 중개수수료 + 양도세 등.</p>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연차</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">월세총합</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상환금총합</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">원금</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이자</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리비</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">장기수선 적립</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">장기수선 지출</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세금·보험·기타</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간비용계</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간CF</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">누적CF</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연간 CF(세후)</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">누적 CF</th>
                 <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대출잔액</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">잔존가치</th>
-                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">매각순현금</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">잔존가치(매각가 추정)</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">매각 비용</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">매각 순현금</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IRR</th>
+                <th className="px-2 lg:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equity Multiple</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {years.map(y => (
-                <tr key={y.year}>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-medium text-blue-600">{y.year}년차</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualRent)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualPayment)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualPrincipal)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualInterest)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualMgmt)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualMaintenanceReserve)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.maintenanceSpent)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualPropTax + y.annualInsurance + y.annualOther)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.annualExpenseTotal)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-medium">{formatCurrency(y.netCashFlowAfterTax)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.cumulativeCFAfterTax)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.loanBalance)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(y.remainingValue)}</td>
-                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-bold text-blue-600">{formatCurrency(y.netProceedsAfterTax)}</td>
+              {saleRows.map(r=> (
+                <tr key={r.year}>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-medium text-blue-600">{r.year}년차</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(r.annualCF)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(r.cumulativeCF)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(r.loanBal)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(r.saleValue)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{formatCurrency(r.sellingFee)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm font-medium text-blue-600">{formatCurrency(r.netSaleProceeds)}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{r.irr!==null ? r.irr.toFixed(2)+' %':'-'}</td>
+                  <td className="px-2 lg:px-3 py-2 text-xs lg:text-sm">{r.equityMultiple!==null ? r.equityMultiple.toFixed(2)+' x':'-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
         <div className="mt-4 p-4 bg-gray-50 rounded-lg text-xs lg:text-sm">
           <h4 className="font-medium text-gray-800 mb-2">계산 기준</h4>
           <ul className="space-y-1 text-gray-600">
-            <li>• 입주율을 반영해 월세 수입을 계산합니다</li>
-            <li>• 수선비는 매년 적립 후 10/20/30년차에 일괄 지출합니다</li>
-            <li>• 잔존가치는 건물가치 기준(내용연수에 따라 감가), 토지 가치는 포함되지 않습니다</li>
-            <li>• 매각순현금은 건물가치에서 3% 수수료와 대출잔액을 차감한 금액입니다</li>
+            <li>• 초기 투자 = 자기자본 + 제비용(모두 현금 지출 가정)</li>
+            <li>• IRR: 연 8% 초기 추정치로 뉴턴-랩슨 50회 이내 수렴</li>
+            <li>• 매각 비용 = 중개 수수료(3%) + 양도세(법인세+지방세)</li>
+            <li>• 매각 순현금 = 매각가 - 매각비용 - 대출잔액</li>
+            <li>• Equity Multiple = (총 회수 현금 / 초기 투자)</li>
           </ul>
         </div>
       </div>
@@ -903,6 +935,120 @@ export function ResultCard({
         return renderSummaryTab();
     }
   };
+
+  // PDF Export (listen for global event from form header)
+  useEffect(()=>{
+    if(!formData || !schedule.length) return;
+    // helpers defined outside handler to reduce nesting
+    const fmtN=(n?:number|null)=> n===undefined||n===null||isNaN(n) ? '-' : Math.round(n).toLocaleString();
+    const fmtP=(p?:number|null)=> p===undefined||p===null||isNaN(p) ? '-' : (p).toFixed(2)+'%';
+    const buildSaleRows=(yearly:ReturnType<typeof computeYearlyFlows>)=>{
+      const acquisitionCosts = [formData.brokerageFee, formData.registrationFee, formData.acquisitionTax, formData.stampDuty, formData.loanFee, formData.surveyFee, formData.miscellaneousFees, (formData as any).otherMiscellaneousFees || '0']
+        .reduce((s,c)=> s + (parseFloat(c)||0),0) * 10000;
+      const initialEquity = (parseFloat(formData.ownCapital||'0')||0)*10000 + acquisitionCosts;
+      return yearly.map(yf=>{
+        const sellingFee = yf.sellingFee + yf.capitalGainsTax;
+        const netSale = Math.max(0, yf.salePrice - sellingFee - yf.loanBalance);
+        const flows:number[] = [-initialEquity];
+        for(let i=0;i<yf.year-1;i++){
+          flows.push(yearly[i].netCashFlowAfterTax);
+        }
+        flows.push(yf.netCashFlowAfterTax + netSale);
+        let irr: number | null = null;
+        if(initialEquity>0){
+          let guess=0.08;
+          for(let iter=0; iter<50; iter++){
+            let npv=0; let dnpv=0;
+            for(let t=0;t<flows.length;t++){ const cf=flows[t]; const denom=Math.pow(1+guess,t); npv += cf/denom; dnpv += -t*cf/denom/(1+guess); }
+            if(Math.abs(npv)<1){
+              irr=guess*100; break;
+            }
+            const next= guess - npv/dnpv;
+            if(!isFinite(next) || next<=-0.9999){
+              break;
+            }
+            guess=next;
+          }
+        }
+        let equityMultiple: number | null = null;
+        if(initialEquity>0){
+          let returned = 0;
+          for(let idx=1; idx<flows.length; idx++) returned += flows[idx];
+          equityMultiple = returned / initialEquity;
+        }
+        return { year:yf.year, annualCF: yf.netCashFlowAfterTax, cumulativeCF: yf.cumulativeCFAfterTax, loanBal: yf.loanBalance, saleValue: yf.salePrice, sellingFee, netSaleProceeds: netSale, irr, equityMultiple };
+      });
+    };
+  const exportPdf = async ()=>{
+      try {
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  registerPretendardFont();
+  doc.setFont('Pretendard','normal');
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const marginX = 36; let y=40; const lineH=14;
+  const addHeader=(title:string)=>{ if(y>pageH-60){ doc.addPage(); y=40;} doc.setFont('Pretendard','normal'); doc.setFontSize(14); doc.text(title, marginX, y); y+=lineH; doc.setFontSize(9); };
+        const addTable=(headers:string[], rows:(string|number|null|undefined)[][])=>{
+          const usableW = pageW - marginX*2; const colW = usableW/headers.length;
+          if(y>pageH-60){ doc.addPage(); y=40; }
+          // header
+          doc.setFont('Pretendard','normal');
+          for(let i=0;i<headers.length;i++){ doc.text(headers[i], marginX + i*colW + 2, y); }
+          y+=lineH-4; doc.setFont('helvetica','normal');
+          for(const r of rows){
+            if(y>pageH-50){
+              doc.addPage(); y=40; doc.setFont('Pretendard','normal');
+              for(let i=0;i<headers.length;i++){ doc.text(headers[i], marginX + i*colW + 2, y); }
+              y+=lineH-4; doc.setFont('helvetica','normal');
+            }
+            for(let i=0;i<r.length;i++){
+              const c = r[i]; const txt = typeof c==='number'? fmtN(c): (c??'');
+              doc.text(String(txt), marginX + i*colW + 2, y);
+            }
+            y+=lineH-2;
+          }
+          y+=4;
+        };
+        const yearly = computeYearlyFlows();
+        const saleRows = buildSaleRows(yearly);
+  doc.setFont('Pretendard','normal'); doc.setFontSize(18); doc.text('Real Estate Investment Report', marginX, y); y+=20; doc.setFontSize(10); doc.text('Generated: '+ new Date().toLocaleString(), marginX, y); y+=lineH;
+        addHeader('1. Acquisition');
+        addTable(['Item','Value','Item','Value'], [
+          ['Purchase Price', fmtN(parseFloat((formData as any).price||'0')*10000), 'Building Price', fmtN(parseFloat(formData.buildingPrice||'0')*10000)],
+            ['Equity', fmtN(parseFloat(formData.ownCapital||'0')*10000), 'Interest Rate', (parseFloat(formData.rate||'0')||0).toFixed(2)+'%'],
+          ['Term (Y)', formData.term, 'Asking Price', fmtN(parseFloat((formData.price)||'0')*10000)],
+        ]);
+        addTable(['Cost','Amount','Cost','Amount'], [
+          ['Acq Tax', fmtN(parseFloat(formData.acquisitionTax||'0')*10000), 'Broker Fee', fmtN(parseFloat(formData.brokerageFee||'0')*10000)],
+          ['Registration', fmtN(parseFloat(formData.registrationFee||'0')*10000), 'Stamp Duty', fmtN(parseFloat(formData.stampDuty||'0')*10000)],
+          ['Misc 1', fmtN(parseFloat(formData.miscellaneousFees||'0')*10000), 'Misc 2', fmtN(parseFloat((formData as any).otherMiscellaneousFees||'0')*10000)]
+        ]);
+        addTable(['Opex','Annual','Opex','Annual'], [
+          ['Mgmt Fee', fmtN(parseFloat(formData.managementFee||'0')*10000*12), 'Maintenance', fmtN(parseFloat(formData.maintenanceFee||'0')*10000*12)],
+          ['Property Tax', fmtN(parseFloat(formData.propertyTax||'0')*10000), 'Insurance', fmtN(parseFloat(formData.insurance||'0')*10000)],
+          ['Other', fmtN(parseFloat(formData.otherExpenses||'0')*10000), '', '']
+        ]);
+        addHeader('2. Analysis');
+        addTable(['Metric','Value','Metric','Value'], [
+          ['Monthly Payment', monthlyPayment, 'Annual Income', yearlyIncome],
+          ['Annual Expense', yearlyCost, 'Annual Profit', yearlyProfit],
+          ['Gross Yield', grossYield+' %', 'Net Yield', yieldPercent+' %'],
+          ['Equity Return', equityYield+' %', '', '']
+        ]);
+        const year1 = schedule.filter(r=> Math.ceil(r.month/12)===1);
+        addTable(['Month','Rent','Pmt','Principal','Interest','Loan Bal'], year1.map(r=> [r.month, r.rent, r.payment, r.principal, r.interest, r.remaining]));
+        addTable(['Year','Annual CF (After Tax)','Cumulative CF','Loan Bal'], yearly.slice(0,10).map(f=> [f.year, f.netCashFlowAfterTax, f.cumulativeCFAfterTax, f.loanBalance]));
+        addTable(['Year','Net Sale Cash','Sale Price','Sale Costs','IRR','EM'], saleRows.slice(0,10).map(r=> [r.year, r.netSaleProceeds, r.saleValue, r.sellingFee, r.irr!==null? fmtP(r.irr):'-', r.equityMultiple? r.equityMultiple.toFixed(2)+'x':'-']));
+        addHeader('3. Appendix');
+        addTable(['No.','Rent','Pmt','Principal','Interest','Balance'], schedule.map(r=> [r.month, r.rent, r.payment, r.principal, r.interest, r.remaining]));
+        addTable(['Year','Annual CF','Cumulative CF','Loan Bal','Net Sale Cash'], yearly.map(f=> [f.year, f.netCashFlowAfterTax, f.cumulativeCFAfterTax, f.loanBalance, f.netProceedsAfterTax]));
+        addTable(['Year','Sale Price','Sale Costs','Net Cash','IRR','EM'], saleRows.map(r=> [r.year, r.saleValue, r.sellingFee, r.netSaleProceeds, r.irr!==null? fmtP(r.irr):'-', r.equityMultiple? r.equityMultiple.toFixed(2)+'x':'-']));
+        doc.save('realestate_analysis.pdf');
+      } catch(e){ console.error(e); }
+    };
+    window.addEventListener('exportPdf', exportPdf);
+    return ()=> window.removeEventListener('exportPdf', exportPdf);
+  },[formData, schedule, monthlyPayment, yearlyIncome, yearlyCost, yearlyProfit, grossYield, yieldPercent, equityYield, computeYearlyFlows]);
 
   return (
     <div className="max-w-full lg:max-w-[1440px] mx-auto mt-6 bg-white p-4 lg:p-6 rounded-xl shadow-md space-y-4">
