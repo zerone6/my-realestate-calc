@@ -1,6 +1,6 @@
 com/realestate/calc/dto/CalculationResult.class
 com/realestate/calc/service/CalculationService.class
-com/realestate/calc/dto/CalculationRequest.class
 com/realestate/calc/controller/CalculationController.class
+com/realestate/calc/dto/CalculationRequest.class
 com/realestate/calc/RealEstateCalcApplication.class
 com/realestate/calc/dto/CalculationResult$RepaymentSchedule.class
