@@ -5,6 +5,7 @@
 /Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/dto/UserCredential.java
 /Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/config/RestClientConfig.java
 /Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/config/SecretsConfig.java
+/Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/controller/MlitApiTestController.java
 /Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/dto/FormInputData.java
 /Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/mlit/StartupMunicipalityLoader.java
 /Users/seonpillhwang/GitHub/my-realestate-calc/backend/src/main/java/com/realestate/calc/controller/MlitCacheController.java

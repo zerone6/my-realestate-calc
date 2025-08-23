@@ -1,5 +1,5 @@
 import AuthButtons from './AuthButtons';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const Header = () => {
   const location = useLocation();
@@ -17,7 +17,14 @@ const Header = () => {
       <div className={outerClass}>
         <div className={innerClass}>
           {!isCalculator && (
-            <div className="text-lg lg:text-xl font-bold text-gray-800 leading-none">My Real Estate</div>
+            <div className="flex items-center gap-4">
+              <div className="text-lg lg:text-xl font-bold text-gray-800 leading-none">My Real Estate</div>
+              <nav className="hidden sm:flex items-center gap-3 text-sm">
+                <Link to="/" className={`px-2 py-1 rounded ${location.pathname==='/' ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>홈</Link>
+                <Link to="/calculator" className={`px-2 py-1 rounded ${location.pathname.startsWith('/calculator') ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>시세 동향</Link>
+                <Link to="/api-test" className={`px-2 py-1 rounded ${location.pathname.startsWith('/api-test') ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>API 테스트</Link>
+              </nav>
+            </div>
           )}
           <AuthButtons />
         </div>
