@@ -12,6 +12,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/mlit-cache")
 public class MlitCacheController {
+    private static final String KEY_CACHE_PATH = "cachePath";
+    private static final String KEY_PREF_COUNT = "prefectureCount";
+    private static final String KEY_DATA = "data";
 
     private final MunicipalityCacheService cacheService;
 
@@ -22,14 +25,23 @@ public class MlitCacheController {
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
         return ResponseEntity.ok(Map.of(
-                "cachePath", cacheService.getCacheAbsolutePath()));
+                KEY_CACHE_PATH, cacheService.getCacheAbsolutePath()));
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<Map<String, Object>> refresh() {
         var data = cacheService.refreshAll();
         return ResponseEntity.ok(Map.of(
-                "cachePath", cacheService.getCacheAbsolutePath(),
-                "prefectureCount", data.size()));
+                KEY_CACHE_PATH, cacheService.getCacheAbsolutePath(),
+                KEY_PREF_COUNT, data.size()));
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<Map<String, Object>> all() {
+        var data = cacheService.loadOrFetchAll();
+        return ResponseEntity.ok(Map.of(
+                KEY_DATA, data,
+                KEY_PREF_COUNT, data.size(),
+                KEY_CACHE_PATH, cacheService.getCacheAbsolutePath()));
     }
 }
