@@ -5,6 +5,9 @@ import { PREF_NAMES, TRADE_LABELS as LABELS } from '../../../shared/data/tradeLa
 type Prefill = { pref?: string; cityId?: string; district1?: string }
 
 export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefill }>) {
+  // simple session cache keys
+  const STORAGE_DATA = 'ts:lastListData'
+  const STORAGE_STATE = 'ts:lastListState'
   // filters
   const [pref, setPref] = useState(prefill?.pref ?? '')
   const [cityId, setCityId] = useState(prefill?.cityId ?? '')
@@ -69,6 +72,35 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     run()
   }, [prefill])
 
+  // Restore last results from session on mount to avoid blank state on tab switch
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_DATA)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') {
+          setData(parsed)
+        }
+      }
+      const rawState = sessionStorage.getItem(STORAGE_STATE)
+      if (!prefill && rawState) {
+        const s = JSON.parse(rawState)
+        if (s && typeof s === 'object') {
+          if (typeof s.fYear === 'string') setFYear(s.fYear)
+          if (typeof s.fType === 'string') setFType(s.fType)
+          if (typeof s.fFloorPlan === 'string') setFFloorPlan(s.fFloorPlan)
+          if (typeof s.fBuildingYear === 'string') setFBuildingYear(s.fBuildingYear)
+          if (typeof s.fStructure === 'string') setFStructure(s.fStructure)
+          if (typeof s.fDistrict === 'string') setFDistrict(s.fDistrict)
+          if (typeof s.size === 'number') setSize(s.size)
+        }
+      }
+    } catch {
+      // ignore cache errors
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // When prefill changed underlying scope or district, trigger a fetch once
   useEffect(() => {
     if (prefillPending.current) {
@@ -77,7 +109,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   fetchList({ page: 0 })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pref, cityId, fDistrict])
+  }, [prefill, pref, cityId, fDistrict])
 
   // Ensure initial auto-search on tab open
   useEffect(() => {
@@ -126,6 +158,12 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   const res = await fetch(`/api/mlit/prices/list?${params.toString()}`)
       const j: ListResponse = await res.json()
       setData(j)
+      try {
+        sessionStorage.setItem(STORAGE_DATA, JSON.stringify(j))
+        sessionStorage.setItem(STORAGE_STATE, JSON.stringify({ fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict, size }))
+      } catch {
+        // ignore cache errors
+      }
     } catch (e: any) {
       setError(e?.message ?? '검색 실패')
     } finally {
@@ -398,7 +436,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
         {!loading && (filteredItems.length === 0) && (
                   <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
                 )}
-      {!loading && filteredItems.map(item => (
+      {filteredItems.map(item => (
                   <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
                     <td className="px-3 py-2">{item.year}</td>
                     <td className="px-3 py-2">{item.districtName}</td>
