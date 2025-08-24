@@ -26,6 +26,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   const [fFloorPlan, setFFloorPlan] = useState('')
   const [fBuildingYear, setFBuildingYear] = useState('')
   const [fStructure, setFStructure] = useState('')
+  const [fDistrict, setFDistrict] = useState('')
 
   // dataset-wide facets for filter options
   const [facetYears, setFacetYears] = useState<string[]>([])
@@ -33,6 +34,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   const [facetFloorPlans, setFacetFloorPlans] = useState<string[]>([])
   const [facetBuildingYears, setFacetBuildingYears] = useState<string[]>([])
   const [facetStructures, setFacetStructures] = useState<string[]>([])
+  const [facetDistricts, setFacetDistricts] = useState<string[]>([])
   const [loadingFacets, setLoadingFacets] = useState(false)
 
   const [data, setData] = useState<ListResponse | null>(null)
@@ -49,7 +51,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     if (prefill) {
       if (prefill.pref) setPref(prefill.pref)
       if (prefill.cityId) setCityId(prefill.cityId)
-  // district1 prefill no longer maps to a list-level filter
+      if (prefill.district1) setFDistrict(prefill.district1)
       prefillPending.current = true
     }
     const run = async () => {
@@ -67,20 +69,21 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     run()
   }, [prefill])
 
-  // When prefill changed underlying scope, trigger a fetch once
+  // When prefill changed underlying scope or district, trigger a fetch once
   useEffect(() => {
     if (prefillPending.current) {
       prefillPending.current = false
-      fetchList()
+  setPage(0)
+  fetchList({ page: 0 })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pref, cityId])
+  }, [pref, cityId, fDistrict])
 
   // Ensure initial auto-search on tab open
   useEffect(() => {
     // If we have prefill coming in, skip the default fetch to avoid flashing defaults
     const hasPrefill = !!(prefill && (prefill.pref || prefill.cityId))
-    if (!hasPrefill) fetchList()
+  if (!hasPrefill) fetchList({ page: 0 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -89,7 +92,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     setCityId(prev => (prev && pref && prev.startsWith(pref) ? prev : ''))
   }, [pref])
 
-  const fetchList = async () => {
+  const fetchList = async (opts?: { page?: number; size?: number }) => {
     setLoading(true)
     setError(null)
     try {
@@ -112,10 +115,13 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   if (fFloorPlan) { params.append('floorPlan', fFloorPlan) }
   if (fBuildingYear) { params.append('buildingYear', fBuildingYear) }
   if (fStructure) { params.append('structure', fStructure) }
+  if (fDistrict) { params.append('districtName', fDistrict) }
   // Intentionally do NOT send list-level filters (year/quarter/pref/muni/district)
   // These are applied client-side within the current page of results.
-      params.append('page', String(page))
-      params.append('size', String(size))
+  const effPage = opts?.page ?? page
+  const effSize = opts?.size ?? size
+  params.append('page', String(effPage))
+  params.append('size', String(effSize))
   params.append('mode', 'SERVICE')
   const res = await fetch(`/api/mlit/prices/list?${params.toString()}`)
       const j: ListResponse = await res.json()
@@ -130,7 +136,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   useEffect(() => {
     fetchList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, size, fYear, fType, fFloorPlan, fBuildingYear, fStructure])
+  }, [page, size, fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict])
 
   const fetchFacets = async () => {
     setLoadingFacets(true)
@@ -155,8 +161,9 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   setFacetFloorPlans((j?.floorPlans || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
   setFacetBuildingYears((j?.buildingYears || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
   setFacetStructures((j?.structures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+  setFacetDistricts((j?.districts || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
     } catch {
-  setFacetYears([]); setFacetTypes([]); setFacetFloorPlans([]); setFacetBuildingYears([]); setFacetStructures([])
+  setFacetYears([]); setFacetTypes([]); setFacetFloorPlans([]); setFacetBuildingYears([]); setFacetStructures([]); setFacetDistricts([])
     } finally {
       setLoadingFacets(false)
     }
@@ -168,12 +175,20 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pref, cityId, station, startYear, endYear, priceClassification])
 
-  const onSearch = () => { setPage(0); fetchList() }
+  const onSearch = () => { setPage(0); fetchList({ page: 0 }) }
+
+  // Auto-refresh list when request-level inputs change (no need to click 검색)
+  useEffect(() => {
+    if (prefillPending.current) return
+    setPage(0)
+  fetchList({ page: 0 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pref, cityId, station, startYear, endYear, priceClassification])
 
   // If any list-level filter changes, reset to first page to keep pagination consistent
   useEffect(() => {
     setPage(0)
-  }, [fYear, fType, fFloorPlan, fBuildingYear, fStructure])
+  }, [fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict])
 
   const totalPages = useMemo(() => {
     if (!data) return 0
@@ -190,6 +205,20 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
       setDetail(null)
     }
   }
+
+  // Client-side filtering to ensure visible rows honor current filters even if server returns a broader set
+  const filteredItems = useMemo(() => {
+    const items = data?.items || []
+    return items.filter(it => {
+      if (fYear && String(it.year) !== String(fYear)) return false
+      if (fDistrict && String(it.districtName || '') !== String(fDistrict)) return false
+      if (fType && String(it.type || '') !== String(fType)) return false
+      if (fFloorPlan && String(it.floorPlan || '') !== String(fFloorPlan)) return false
+      if (fBuildingYear && String(it.buildingYear || '') !== String(fBuildingYear)) return false
+      if (fStructure && String(it.structure || '') !== String(fStructure)) return false
+      return true
+    })
+  }, [data, fYear, fDistrict, fType, fFloorPlan, fBuildingYear, fStructure])
 
   const formatManYen = (v: unknown) => {
     if (v === null || v === undefined) return ''
@@ -285,7 +314,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             {data?.source && <div className="text-xs px-2 py-1 bg-gray-100 rounded">source: {data.source}</div>}
           </div>
           {/* List-level filters aligned to table */}
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-6 gap-3">
             <div>
               <label htmlFor="fYear" className="block text-xs text-gray-600 mb-1">연도</label>
               <select id="fYear" className="w-full border rounded px-2 py-1" value={fYear} onChange={e=>setFYear(e.target.value)}>
@@ -295,6 +324,15 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                 ))}
               </select>
               {loadingFacets && <div className="text-[10px] text-gray-500 mt-1">연도 로딩…</div>}
+            </div>
+            <div>
+              <label htmlFor="fDistrict" className="block text-xs text-gray-600 mb-1">세부1</label>
+              <select id="fDistrict" className="w-full border rounded px-2 py-1" value={fDistrict} onChange={e=>setFDistrict(e.target.value)}>
+                <option value="">전체</option>
+                {facetDistricts.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="fType" className="block text-xs text-gray-600 mb-1">유형</label>
@@ -333,9 +371,9 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
               </select>
             </div>
           </div>
-          <div className="mt-2 flex items-center gap-3">
-      <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
-            <div className="text-xs text-gray-600">표시 {(data?.items||[]).length}건</div>
+    <div className="mt-2 flex items-center gap-3">
+  <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFDistrict(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
+      <div className="text-xs text-gray-600">표시 {filteredItems.length}건</div>
           </div>
         </div>
         <div className="p-4 lg:p-6">
@@ -344,6 +382,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
               <thead className="bg-gray-50 text-gray-700">
                 <tr>
                   <th className="px-3 py-2 text-left">연도</th>
+                  <th className="px-3 py-2 text-left">세부1</th>
                   <th className="px-3 py-2 text-left">유형</th>
                   <th className="px-3 py-2 text-right">거래가격(만엔)</th>
                   <th className="px-3 py-2 text-left">평면</th>
@@ -356,12 +395,13 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                 {loading && (
                   <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
                 )}
-                {!loading && ((data?.items||[]).length === 0) && (
+        {!loading && (filteredItems.length === 0) && (
                   <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
                 )}
-          {!loading && (data?.items || []).map(item => (
+      {!loading && filteredItems.map(item => (
                   <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
                     <td className="px-3 py-2">{item.year}</td>
+                    <td className="px-3 py-2">{item.districtName}</td>
                     <td className="px-3 py-2">{item.type}</td>
                     <td className="px-3 py-2 text-right">{formatManYen(item.tradePrice)}</td>
                     <td className="px-3 py-2">{item.floorPlan}</td>
