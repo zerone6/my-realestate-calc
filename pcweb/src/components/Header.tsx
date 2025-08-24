@@ -23,6 +23,7 @@ const Header = () => {
                 <Link to="/" className={`px-2 py-1 rounded ${location.pathname==='/' ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>홈</Link>
                 <Link to="/calculator" className={`px-2 py-1 rounded ${location.pathname.startsWith('/calculator') ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>시세 동향</Link>
                 <Link to="/api-test" className={`px-2 py-1 rounded ${location.pathname.startsWith('/api-test') ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>API 테스트</Link>
+                <Link to="/trade-search" className={`px-2 py-1 rounded ${location.pathname.startsWith('/trade-search') ? 'text-blue-700 font-semibold' : 'text-gray-700 hover:text-gray-900'}`}>거래 검색</Link>
               </nav>
             </div>
           )}

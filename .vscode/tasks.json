@@ -1,141 +1,204 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Start PCWeb Dev Server",
-            "type": "shell",
-            "command": "npm",
-            "args": [
-                "run",
-                "dev"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}/pcweb"
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "isBackground": true,
-            "problemMatcher": {
-                "owner": "vite",
-                "pattern": {
-                    "regexp": "^.*$",
-                    "file": 1,
-                    "location": 2,
-                    "message": 3
-                },
-                "background": {
-                    "activeOnStart": true,
-                    "beginsPattern": "^.*VITE.*ready.*$",
-                    "endsPattern": "^.*Local:.*$"
-                }
-            }
-        },
-        {
-            "label": "Start Backend Server",
-            "type": "shell",
-            "command": "mvn",
-            "args": [
-                "spring-boot:run"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}/backend"
-            },
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "isBackground": true,
-            "problemMatcher": {
-                "owner": "spring-boot",
-                "pattern": {
-                    "regexp": "^.*$",
-                    "file": 1,
-                    "location": 2,
-                    "message": 3
-                },
-                "background": {
-                    "activeOnStart": true,
-                    "beginsPattern": "^.*Starting.*RealEstateCalcApplication.*$",
-                    "endsPattern": "^.*Started.*RealEstateCalcApplication.*$"
-                }
-            }
-        },
-        {
-            "label": "Start Full Stack Development",
-            "dependsOrder": "parallel",
-            "dependsOn": [
-                "Start Backend Server",
-                "Start PCWeb Dev Server"
-            ],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            }
-        },
-        {
-            "label": "Stop Backend Server",
-            "type": "shell",
-            "command": "lsof -ti:8080 | xargs kill -9",
-            "options": {
-                "cwd": "${workspaceFolder}/backend"
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            }
-        },
-        {
-            "label": "Stop PCWeb Dev Server",
-            "type": "shell",
-            "command": "pkill -f 'vite'",
-            "options": {
-                "cwd": "${workspaceFolder}/pcweb"
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            }
-        },
-        {
-            "label": "Stop Full Stack Development",
-            "dependsOrder": "parallel",
-            "dependsOn": [
-                "Stop Backend Server",
-                "Stop PCWeb Dev Server"
-            ],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
-            }
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start PCWeb Dev Server",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/pcweb"
+			},
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "new",
+				"showReuseMessage": true,
+				"clear": false
+			},
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "vite",
+				"pattern": {
+					"regexp": "^.*$",
+					"file": 1,
+					"location": 2,
+					"message": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*VITE.*ready.*$",
+					"endsPattern": "^.*Local:.*$"
+				}
+			}
+		},
+		{
+			"label": "Start Backend Server",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"spring-boot:run"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "new",
+				"showReuseMessage": true,
+				"clear": false
+			},
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "spring-boot",
+				"pattern": {
+					"regexp": "^.*$",
+					"file": 1,
+					"location": 2,
+					"message": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*Starting.*RealEstateCalcApplication.*$",
+					"endsPattern": "^.*Started.*RealEstateCalcApplication.*$"
+				}
+			}
+		},
+		{
+			"label": "Start Full Stack Development",
+			"dependsOrder": "parallel",
+			"dependsOn": [
+				"Start Backend Server",
+				"Start PCWeb Dev Server"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "new",
+				"showReuseMessage": true,
+				"clear": false
+			}
+		},
+		{
+			"label": "Stop Backend Server",
+			"type": "shell",
+			"command": "lsof -ti:8080 | xargs kill -9",
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": false
+			}
+		},
+		{
+			"label": "Stop PCWeb Dev Server",
+			"type": "shell",
+			"command": "pkill -f 'vite'",
+			"options": {
+				"cwd": "${workspaceFolder}/pcweb"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": false
+			}
+		},
+		{
+			"label": "Stop Full Stack Development",
+			"dependsOrder": "parallel",
+			"dependsOn": [
+				"Stop Backend Server",
+				"Stop PCWeb Dev Server"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": false
+			}
+		},
+		{
+			"label": "Build Backend Once",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"-q",
+				"-DskipTests",
+				"clean",
+				"package"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$maven-stderr"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Backend Once",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"-q",
+				"-DskipTests",
+				"clean",
+				"package"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$maven-stderr"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Backend Once",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"-q",
+				"-DskipTests",
+				"-f",
+				"backend/pom.xml",
+				"clean",
+				"package"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$maven-stderr"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run Backend (package+run)",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"clean",
+				"package",
+				"spring-boot:run",
+				"-DskipTests"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
 }

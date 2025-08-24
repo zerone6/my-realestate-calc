@@ -58,7 +58,7 @@ public class MlitPriceBatchService {
         return mapper.writeValueAsString(out);
     }
 
-    private List<String> loadMunicipalities(String prefectureCode) {
+    public List<String> loadMunicipalities(String prefectureCode) {
         String sql = "SELECT id FROM municipality WHERE prefecture_code = ? ORDER BY id";
         return jdbc.query(sql, ps -> ps.setString(1, prefectureCode), (rs, i) -> rs.getString(1));
     }

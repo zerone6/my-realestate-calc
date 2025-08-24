@@ -3,6 +3,7 @@ import LandingPage from './components/LandingPage'
 import CalculatorApp from './components/CalculatorApp'
 import Header from './components/Header'
 import ApiTestPage from './components/ApiTestPage'
+import TradeSearchPage from './components/TradeSearchPage'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/calculator" element={<CalculatorApp />} />
   <Route path="/api-test" element={<ApiTestPage />} />
+  <Route path="/trade-search" element={<TradeSearchPage />} />
       </Routes>
     </Router>
   )

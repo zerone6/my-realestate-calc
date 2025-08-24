@@ -21,6 +21,8 @@ public class MlitPriceQueryService {
     private static final String Q_YEAR = "q.year";
     private static final String Q_PRICE_CLASS = "q.price_classification";
     private static final String Q_QUARTER = "q.quarter";
+    private static final String ORDER_BY_ID = " ORDER BY r.id";
+    private static final String AND_OPEN = " AND (";
 
     public boolean existsForCity(String city, String year, String priceClass, String quarter) {
         StringBuilder sb = new StringBuilder();
@@ -70,8 +72,68 @@ public class MlitPriceQueryService {
         addFilter(sb, args, Q_YEAR, year);
         addFilter(sb, args, Q_PRICE_CLASS, priceClass);
         addFilter(sb, args, Q_QUARTER, quarter);
-        sb.append(" ORDER BY r.id");
+        sb.append(ORDER_BY_ID);
         return rowsToJson(sb.toString(), args);
+    }
+
+    /**
+     * Year-range variant: filters rows where q.year::int is within
+     * [startYear,endYear].
+     * If both startYear and endYear are null/blank, behaves like single-year with
+     * null year.
+     */
+    public String jsonForCityRange(String city, String startYear, String endYear, String priceClass, String quarter) {
+        StringBuilder sb = new StringBuilder();
+        List<Object> args = new ArrayList<>();
+        baseSelect(sb);
+        sb.append(" WHERE r.municipality_code=?");
+        args.add(city);
+        addYearRangeFilter(sb, args, startYear, endYear);
+        addFilter(sb, args, Q_PRICE_CLASS, priceClass);
+        addFilter(sb, args, Q_QUARTER, quarter);
+        sb.append(ORDER_BY_ID);
+        return rowsToJson(sb.toString(), args);
+    }
+
+    /**
+     * Returns list of quarters (1..4) that are missing for a given
+     * city/year/priceClass.
+     * If year or priceClass is null/blank, returns empty (cannot determine
+     * completeness).
+     */
+    public java.util.List<Integer> missingQuartersForCity(String city, String year, String priceClass) {
+        if (city == null || city.isBlank() || year == null || year.isBlank() || priceClass == null
+                || priceClass.isBlank()) {
+            return java.util.List.of();
+        }
+        String sql = "SELECT DISTINCT q.quarter FROM mlit_price_record r JOIN mlit_price_query_log q ON r.query_id=q.id "
+                + "WHERE r.municipality_code=? AND q.year=? AND q.price_classification=? AND q.quarter IS NOT NULL";
+        var quarters = jdbc.query(con -> {
+            var ps = con.prepareStatement(sql);
+            ps.setString(1, city);
+            ps.setString(2, year);
+            ps.setString(3, priceClass);
+            return ps;
+        }, rs -> {
+            var set = new java.util.HashSet<Integer>();
+            while (rs.next()) {
+                String q = rs.getString(1);
+                try {
+                    if (q != null)
+                        set.add(Integer.parseInt(q.trim()));
+                } catch (NumberFormatException ignore) {
+                    // Ignore unparsable quarter values from legacy data
+                }
+            }
+            return set;
+        });
+        java.util.List<Integer> missing = new java.util.ArrayList<>();
+        java.util.Set<Integer> had = (quarters != null) ? quarters : java.util.Set.of();
+        for (int q = 1; q <= 4; q++) {
+            if (!had.contains(q))
+                missing.add(q);
+        }
+        return missing;
     }
 
     public String jsonForArea(String area, String year, String priceClass, String quarter) {
@@ -84,8 +146,61 @@ public class MlitPriceQueryService {
         addFilter(sb, args, Q_YEAR, year);
         addFilter(sb, args, Q_PRICE_CLASS, priceClass);
         addFilter(sb, args, Q_QUARTER, quarter);
-        sb.append(" ORDER BY r.id");
+        sb.append(ORDER_BY_ID);
         return rowsToJson(sb.toString(), args);
+    }
+
+    /** Year-range variant for prefecture scope. */
+    public String jsonForAreaRange(String area, String startYear, String endYear, String priceClass, String quarter) {
+        StringBuilder sb = new StringBuilder();
+        List<Object> args = new ArrayList<>();
+        baseSelect(sb);
+        sb.append(" WHERE (q.area=? OR r.municipality_code LIKE ?)");
+        args.add(area);
+        args.add(area + "%");
+        addYearRangeFilter(sb, args, startYear, endYear);
+        addFilter(sb, args, Q_PRICE_CLASS, priceClass);
+        addFilter(sb, args, Q_QUARTER, quarter);
+        sb.append(ORDER_BY_ID);
+        return rowsToJson(sb.toString(), args);
+    }
+
+    /**
+     * Returns whether there exists at least one record for each quarter 1..4 within
+     * a prefecture for a given year and priceClass.
+     */
+    public boolean hasAllQuartersForArea(String area, String year, String priceClass) {
+        if (area == null || area.isBlank() || year == null || year.isBlank() || priceClass == null
+                || priceClass.isBlank()) {
+            return false;
+        }
+        String sql = "SELECT DISTINCT q.quarter FROM mlit_price_record r JOIN mlit_price_query_log q ON r.query_id=q.id "
+                + "WHERE (q.area=? OR r.municipality_code LIKE ?) AND q.year=? AND q.price_classification=? AND q.quarter IS NOT NULL";
+        var quarters = jdbc.query(con -> {
+            var ps = con.prepareStatement(sql);
+            ps.setString(1, area);
+            ps.setString(2, area + "%");
+            ps.setString(3, year);
+            ps.setString(4, priceClass);
+            return ps;
+        }, rs -> {
+            var set = new java.util.HashSet<Integer>();
+            while (rs.next()) {
+                String q = rs.getString(1);
+                try {
+                    if (q != null)
+                        set.add(Integer.parseInt(q.trim()));
+                } catch (NumberFormatException ignore) {
+                    // Ignore unparsable quarter values from legacy data
+                }
+            }
+            return set;
+        });
+        java.util.Set<Integer> had = (quarters != null) ? quarters : java.util.Set.of();
+        for (int q = 1; q <= 4; q++)
+            if (!had.contains(q))
+                return false;
+        return true;
     }
 
     private void baseSelect(StringBuilder sb) {
@@ -103,6 +218,32 @@ public class MlitPriceQueryService {
         if (val != null && !val.isBlank()) {
             sb.append(" AND ").append(col).append(" = ?");
             args.add(val);
+        }
+    }
+
+    private void addYearRangeFilter(StringBuilder sb, List<Object> args, String startYear, String endYear) {
+        Integer s = parseYear(startYear);
+        Integer e = parseYear(endYear);
+        if (s != null && e != null) {
+            sb.append(AND_OPEN).append(Q_YEAR).append("::int BETWEEN ? AND ?)");
+            args.add(s);
+            args.add(e);
+        } else if (s != null) {
+            sb.append(AND_OPEN).append(Q_YEAR).append("::int >= ?)");
+            args.add(s);
+        } else if (e != null) {
+            sb.append(AND_OPEN).append(Q_YEAR).append("::int <= ?)");
+            args.add(e);
+        }
+    }
+
+    private Integer parseYear(String y) {
+        if (y == null || y.isBlank())
+            return null;
+        try {
+            return Integer.parseInt(y.trim());
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 
