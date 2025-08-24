@@ -76,7 +76,10 @@ export function createDefaultFormData(): FormInputData {
         // 첫 번째 블럭: 물건 정보 (README 기본값 적용)
         name: '네리마',
     station: '',
-    address: '',
+    pref: '',
+    cityId: '',
+    district1: '',
+    district2: '',
         price: '6000', // 기본 매입가격 6000만원
         grossYield: '6.0',
         structure: '목조',

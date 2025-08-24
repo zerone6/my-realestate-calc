@@ -3,6 +3,7 @@ package com.realestate.calc.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.realestate.calc.mlit.MlitPriceIngestService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,11 +16,13 @@ import java.util.List;
 @RequestMapping("/api/mlit/prices")
 public class MlitPriceSearchController {
     private final JdbcTemplate jdbc;
+    private final MlitPriceIngestService ingestService;
     private final ObjectMapper mapper = new ObjectMapper();
     private static final String JOIN_QUERY_LOG = " JOIN mlit_price_query_log q ON r.query_id=q.id";
 
-    public MlitPriceSearchController(JdbcTemplate jdbc) {
+    public MlitPriceSearchController(JdbcTemplate jdbc, MlitPriceIngestService ingestService) {
         this.jdbc = jdbc;
+        this.ingestService = ingestService;
     }
 
     @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -34,6 +37,16 @@ public class MlitPriceSearchController {
             @RequestParam(required = false, name = "endYear") String endYear,
             @RequestParam(required = false, name = "priceClassification") String priceClassification,
             @RequestParam(required = false, name = "quarter") String quarter,
+            // additional filters for table alignment
+            @RequestParam(required = false, name = "type") String type,
+            @RequestParam(required = false, name = "floorPlan") String floorPlan,
+            @RequestParam(required = false, name = "buildingYear") String buildingYear,
+            @RequestParam(required = false, name = "structure") String structure,
+            @RequestParam(required = false, name = "minTradePrice") String minTradePrice,
+            @RequestParam(required = false, name = "maxTradePrice") String maxTradePrice,
+            @RequestParam(required = false, name = "minLandArea") String minLandArea,
+            @RequestParam(required = false, name = "minExclusiveArea") String minExclusiveArea,
+            @RequestParam(required = false, name = "mode") String mode,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         int pageSize = normalizeSize(size);
@@ -50,10 +63,50 @@ public class MlitPriceSearchController {
         f.endYear = endYear;
         f.priceClassification = priceClassification;
         f.quarter = quarter;
+        f.type = type;
+        f.floorPlan = floorPlan;
+        f.buildingYear = buildingYear;
+        f.structure = structure;
+        f.minTradePrice = minTradePrice;
+        f.maxTradePrice = maxTradePrice;
+        f.minLandArea = minLandArea;
+        f.minExclusiveArea = minExclusiveArea;
+        String m = (mode == null || mode.isBlank()) ? "SERVICE" : mode.trim().toUpperCase();
+
+        // DB-only path
+        if ("DB".equals(m)) {
+            WhereArgs where = buildWhere(f);
+            int total = countTotal(where);
+            List<Object[]> rows = fetchRows(where, pageSize, offset);
+            String response = buildListResponse(rows, total, page, pageSize, "DB");
+            return ResponseEntity.ok(response);
+        }
+
+        // MLIT: always fetch from MLIT for the given scope/year(s), then read from DB
+        if ("MLIT".equals(m)) {
+            ingestForFilters(f);
+            WhereArgs where = buildWhere(f);
+            int total = countTotal(where);
+            List<Object[]> rows = fetchRows(where, pageSize, offset);
+            String response = buildListResponse(rows, total, page, pageSize, "MLIT");
+            return ResponseEntity.ok(response);
+        }
+
+        // SERVICE: DB-first; if empty, backfill from MLIT, then return with appropriate
+        // source
         WhereArgs where = buildWhere(f);
         int total = countTotal(where);
+        if (total > 0) {
+            List<Object[]> rows = fetchRows(where, pageSize, offset);
+            String response = buildListResponse(rows, total, page, pageSize, "SERVICE=DB");
+            return ResponseEntity.ok(response);
+        }
+        // No data in DB for this scope; attempt backfill via MLIT
+        ingestForFilters(f);
+        where = buildWhere(f);
+        total = countTotal(where);
         List<Object[]> rows = fetchRows(where, pageSize, offset);
-        String response = buildListResponse(rows, total, page, pageSize);
+        String response = buildListResponse(rows, total, page, pageSize, "SERVICE=MLIT");
         return ResponseEntity.ok(response);
     }
 
@@ -78,7 +131,11 @@ public class MlitPriceSearchController {
                 "     WHEN COALESCE(LPAD(q.price_classification, 2, '0'), CASE WHEN r.price_category LIKE '%成約%' THEN '02' WHEN r.price_category LIKE '%取引%' THEN '01' ELSE NULL END) = '01' THEN '取引価格' "
                 +
                 "     ELSE NULL END AS price_classification_label, " +
-                "r.prefecture, r.municipality, r.district_name, r.period " +
+                "r.prefecture, r.municipality, r.district_name, r.period, " +
+                // additional columns for new table (structure included; drop
+                // coverage/floor_area ratios for list)
+                "r.type, r.trade_price_int, r.floor_plan, r.area_num, r.total_floor_area_num, r.building_year, r.structure "
+                +
                 "FROM mlit_price_record r" + JOIN_QUERY_LOG + built.where +
                 " ORDER BY q.year::int DESC NULLS LAST, " +
                 "COALESCE(q.quarter::int, NULLIF((regexp_match(r.period, '第([0-9])四半期'))[1], '')::int) DESC NULLS LAST, "
@@ -96,16 +153,18 @@ public class MlitPriceSearchController {
             var list = new ArrayList<Object[]>();
             while (rs.next()) {
                 list.add(new Object[] { rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
-                        rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9) });
+                        rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9),
+                        rs.getString(10), rs.getObject(11), rs.getString(12), rs.getObject(13), rs.getObject(14),
+                        rs.getString(15), rs.getString(16) });
             }
             return list;
         });
     }
 
-    private String buildListResponse(List<Object[]> rows, int total, int page, int pageSize) {
+    private String buildListResponse(List<Object[]> rows, int total, int page, int pageSize, String source) {
         ObjectNode root = mapper.createObjectNode();
         root.put("status", "OK");
-        root.put("source", "DB");
+        root.put("source", source);
         root.put("page", Math.max(page, 0));
         root.put("size", pageSize);
         root.put("total", total);
@@ -129,6 +188,14 @@ public class MlitPriceSearchController {
             n.put("prefecture", (String) r[5]);
             n.put("municipality", (String) r[6]);
             n.put("districtName", (String) r[7]);
+            // additional fields for table
+            n.put("type", (String) r[9]);
+            putNumAsString(n, "tradePrice", r[10]);
+            n.put("floorPlan", (String) r[11]);
+            putNumAsString(n, "landArea", r[12]);
+            putNumAsString(n, "exclusiveArea", r[13]);
+            n.put("buildingYear", (String) r[14]);
+            n.put("structure", (String) r[15]);
             items.add(n);
         }
         root.set("items", items);
@@ -167,6 +234,77 @@ public class MlitPriceSearchController {
         String endYear;
         String priceClassification;
         String quarter;
+        String type;
+        String floorPlan;
+        String buildingYear;
+        String structure;
+        String minTradePrice;
+        String maxTradePrice;
+        String minLandArea;
+        String minExclusiveArea;
+    }
+
+    private void ingestForFilters(Filters f) {
+        int[] yr = normalizeYearRange(f.startYear, f.endYear);
+        if (yr.length == 0)
+            return;
+        java.util.List<String> classes = resolveClasses(f.priceClassification);
+        for (int y = yr[0]; y <= yr[1]; y++)
+            ingestForYearAndClasses(f, y, classes);
+    }
+
+    private void ingestForYearAndClasses(Filters f, int year, java.util.List<String> classes) {
+        for (String pc : classes) {
+            java.util.Map<String, String> params = new java.util.HashMap<>();
+            putIfNotBlank(params, "area", f.area);
+            putIfNotBlank(params, "city", f.city);
+            putIfNotBlank(params, "station", f.station);
+            params.put("year", String.valueOf(year));
+            params.put("priceClassification", pc);
+            try {
+                ingestService.ingest(params);
+            } catch (Exception ignored) {
+                // best-effort
+            }
+        }
+    }
+
+    private static void putIfNotBlank(java.util.Map<String, String> m, String k, String v) {
+        if (notBlank(v))
+            m.put(k, v);
+    }
+
+    private static java.util.List<String> resolveClasses(String priceClassification) {
+        java.util.List<String> classes = new java.util.ArrayList<>();
+        if (notBlank(priceClassification))
+            classes.add(priceClassification);
+        else {
+            classes.add("01");
+            classes.add("02");
+        }
+        return classes;
+    }
+
+    private static int[] normalizeYearRange(String startYear, String endYear) {
+        int sy = parseIntSafe(startYear);
+        int ey = parseIntSafe(endYear);
+        if (sy <= 0 && ey <= 0)
+            return new int[0];
+        if (sy <= 0)
+            sy = ey;
+        if (ey <= 0)
+            ey = sy;
+        int start = Math.min(sy, ey);
+        int end = Math.max(sy, ey);
+        return new int[] { start, end };
+    }
+
+    private static int parseIntSafe(String s) {
+        try {
+            return (s == null || s.isBlank()) ? 0 : Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private static WhereArgs buildWhere(Filters f) {
@@ -175,6 +313,7 @@ public class MlitPriceSearchController {
         addLocationFilters(where, args, f);
         addYearFilters(where, args, f);
         addClassificationFilters(where, args, f);
+        addExtraFilters(where, args, f);
         return new WhereArgs(where, args);
     }
 
@@ -225,6 +364,45 @@ public class MlitPriceSearchController {
         if (notBlank(f.quarter)) {
             where.append(" AND q.quarter = ?");
             args.add(f.quarter);
+        }
+    }
+
+    private static void addExtraFilters(StringBuilder where, List<Object> args, Filters f) {
+        if (notBlank(f.type)) {
+            where.append(" AND r.type = ?");
+            args.add(f.type);
+        }
+        if (notBlank(f.floorPlan)) {
+            where.append(" AND r.floor_plan = ?");
+            args.add(f.floorPlan);
+        }
+        if (notBlank(f.buildingYear)) {
+            where.append(" AND r.building_year = ?");
+            args.add(f.buildingYear);
+        }
+        if (notBlank(f.structure)) {
+            where.append(" AND r.structure = ?");
+            args.add(f.structure);
+        }
+        int minPrice = parseIntSafe(f.minTradePrice);
+        if (minPrice > 0) {
+            where.append(" AND COALESCE(r.trade_price_int, 0) >= ?");
+            args.add(minPrice);
+        }
+        int maxPrice = parseIntSafe(f.maxTradePrice);
+        if (maxPrice > 0) {
+            where.append(" AND COALESCE(r.trade_price_int, 0) <= ?");
+            args.add(maxPrice);
+        }
+        int minLand = parseIntSafe(f.minLandArea);
+        if (minLand > 0) {
+            where.append(" AND COALESCE(r.area_num, 0) >= ?");
+            args.add(minLand);
+        }
+        int minEx = parseIntSafe(f.minExclusiveArea);
+        if (minEx > 0) {
+            where.append(" AND COALESCE(r.total_floor_area_num, 0) >= ?");
+            args.add(minEx);
         }
     }
 
@@ -372,6 +550,11 @@ public class MlitPriceSearchController {
         out.set("prefectures", toStringArray(distinctStrings(built, "r.prefecture", "r.prefecture")));
         out.set("municipalities", toStringArray(distinctStrings(built, "r.municipality", "r.municipality")));
         out.set("districts", toStringArray(distinctStrings(built, "r.district_name", "r.district_name")));
+        // additional facets for new filters
+        out.set("types", toStringArray(distinctStrings(built, "r.type", "r.type")));
+        out.set("floorPlans", toStringArray(distinctStrings(built, "r.floor_plan", "r.floor_plan")));
+        out.set("buildingYears", toStringArray(distinctStrings(built, "r.building_year", "r.building_year")));
+        out.set("structures", toStringArray(distinctStrings(built, "r.structure", "r.structure")));
         return ResponseEntity.ok(out);
     }
 

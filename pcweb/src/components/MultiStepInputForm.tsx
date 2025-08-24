@@ -4,6 +4,7 @@ import { FormInputData } from '../../../shared/types/RealEstateForm'
 import { createDefaultFormData, calculateTotalPurchaseCost } from '../../../shared/utils/formUtils'
 import { createInputChangeHandler } from '../hooks/useFormHandlers'
 import DescriptionTooltip from './DescriptionTooltip'
+import { PREF_NAMES } from '../../../shared/data/tradeLabels'
 
 function InfoButton({ onClick, label }: Readonly<{ onClick: (e: React.MouseEvent) => void, label: string }>) {
   return (
@@ -38,6 +39,11 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   const [tooltipVisible,setTooltipVisible]=useState(false)
   const [tooltipPosition,setTooltipPosition]=useState({x:0,y:0})
   const [tooltipDescription,setTooltipDescription]=useState('')
+  // Address dropdown data
+  const [muni, setMuni] = useState<Record<string, {id:string; name:string}[]>|null>(null)
+  const [loadingMuni, setLoadingMuni] = useState(false)
+  const [districtOptions, setDistrictOptions] = useState<string[]>([])
+  const [loadingDistricts, setLoadingDistricts] = useState(false)
 
   const steps=[{title:'물건 정보',key:'property'},{title:'제비용',key:'acquisition'},{title:'유지·장기수선',key:'maintenance'},{title:'대출 정보',key:'loan'}]
 
@@ -70,6 +76,49 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   useEffect(()=>{ try{localStorage.setItem('realEstateForm',JSON.stringify(form))}catch{} },[form])
   useEffect(()=>{ try{localStorage.setItem('realEstateFormStep',String(currentStep))}catch{} },[currentStep])
   useEffect(()=>{ if(defaultForm){ setForm(defaultForm); try{localStorage.setItem('realEstateForm',JSON.stringify(defaultForm))}catch{} } },[defaultForm])
+
+  // Load municipalities for dropdowns
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setLoadingMuni(true)
+        const r = await fetch('/api/mlit/municipalities-grouped')
+        const j = await r.json()
+        setMuni(j?.data ?? null)
+      } catch {
+        setMuni(null)
+      } finally {
+        setLoadingMuni(false)
+      }
+    }
+    run()
+  }, [])
+
+  // Load districts when city changes
+  useEffect(() => {
+    const load = async () => {
+      if (!form.cityId) { setDistrictOptions([]); return }
+      try {
+        setLoadingDistricts(true)
+        const res = await fetch(`/api/mlit/prices/districts?city=${encodeURIComponent(form.cityId)}`)
+        const list: string[] = await res.json()
+        const sorted = (list||[]).filter(Boolean).sort((a,b)=>a.localeCompare(b))
+        setDistrictOptions(sorted)
+        if (!form.district1 && sorted.length>0) {
+          setForm(f=>({ ...f, district1: sorted[0] }))
+        } else if (sorted.length === 0 && form.district1) {
+          // no districts available -> clear selected district1
+          setForm(f=>({ ...f, district1: '' }))
+        }
+      } catch {
+        setDistrictOptions([])
+      } finally {
+        setLoadingDistricts(false)
+      }
+    }
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.cityId])
 
   const handleInputChange=createInputChangeHandler(form,setForm)
   const autoSave=()=>{ if(form.name.trim()) onAutoSave(form) }
@@ -105,24 +154,72 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         </div>
       </Row>
 
-      {/* 2행: 주소, 매입가 */}
-      <Row>
+      {/* 주소 구성: 현, 시구정촌, 세부1, 세부2 */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
         <div>
-          <div className="flex items-center justify-between">
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">주소</label>
-            <InfoButton onClick={(e)=>handleLabelClick('address',e)} label="주소" />
-          </div>
-          <input id="address" name="address" value={(form as any).address || ''} onChange={handleInputChange} placeholder="예: 도쿄도 네리마구 ..."
+          <label htmlFor="pref" className="block text-sm font-medium text-gray-700 mb-1">현</label>
+          <select id="pref" name="pref" value={(form as any).pref || ''} onChange={(e)=>{
+            handleInputChange(e);
+            // reset city/districts when pref changes
+            setForm(f=>({...f, cityId: '', district1: ''}))
+          }} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <option value="">-- 선택 --</option>
+            {muni && Object.keys(muni).sort((a,b)=>a.localeCompare(b)).map(code => (
+              <option key={code} value={code}>{PREF_NAMES[code] ?? code}</option>
+            ))}
+          </select>
+          {loadingMuni && <div className="text-xs text-gray-500 mt-1">행정구역 목록 불러오는 중…</div>}
+        </div>
+        <div>
+          <label htmlFor="cityId" className="block text-sm font-medium text-gray-700 mb-1">시구정촌</label>
+          <select id="cityId" name="cityId" value={(form as any).cityId || ''}
+            onChange={(e)=>{
+              handleInputChange(e)
+              // also prefill trade search even if no district1
+              try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: (e.target as HTMLSelectElement).value } })) }catch{}
+            }} disabled={!form.pref}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <option value="">-- 선택 --</option>
+            {form.pref && muni?.[form.pref]?.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="district1" className="block text-sm font-medium text-gray-700 mb-1">세부1</label>
+          <select id="district1" name="district1" value={(form as any).district1 || ''}
+            onChange={(e)=>{ handleInputChange(e); try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: form.cityId, district1: e.target.value } })) }catch{}}}
+            disabled={!form.cityId || districtOptions.length===0}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            {districtOptions.length>0 ? (
+              <>
+                <option value="">-- 선택 --</option>
+                {districtOptions.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </>
+            ) : (
+              <option value="">-- 없음 --</option>
+            )}
+          </select>
+          {loadingDistricts && <div className="text-xs text-gray-500 mt-1">세부1 불러오는 중…</div>}
+        </div>
+        <div>
+          <label htmlFor="district2" className="block text-sm font-medium text-gray-700 mb-1">세부2</label>
+          <input id="district2" name="district2" value={(form as any).district2 || ''} onChange={handleInputChange} placeholder="동/번지 등 자유 입력"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
         </div>
-        <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
-      </Row>
+      </div>
 
-      {/* 3행: (기존 유지) 자기자금, 건물가격 */}
-      <Row>
+      {/* 구분선 및 가격/자기자금/건물가격을 아래 블럭으로 이동 */}
+      <div className="border-t my-4" />
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
         <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (万円)','1000')} />
         <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (万円)','0')} />
-      </Row>
+      </div>
+
+  {/* 가격 행 하단부터 기존 섹션 유지 */}
       <Row>
   <LabeledNumber {...numberFieldProps('grossYield','표면 이익율 (%)','6.0','0.1')} />
   <LabeledNumber {...numberFieldProps('rent','월세 수입 (万円)','25','0.1')} />
