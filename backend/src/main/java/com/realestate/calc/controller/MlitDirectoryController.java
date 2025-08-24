@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/mlit")
 public class MlitDirectoryController {
     private final JdbcTemplate jdbcTemplate;
+    private static final String COL_PREF_CODE = "prefecture_code";
 
     public MlitDirectoryController(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -45,15 +46,15 @@ public class MlitDirectoryController {
                 (rs, i) -> Map.of(
                         "id", rs.getString("id"),
                         "name", rs.getString("name"),
-                        "prefecture_code", rs.getString("prefecture_code")));
+                        COL_PREF_CODE, rs.getString(COL_PREF_CODE)));
         Map<String, List<Map<String, String>>> grouped = rows.stream()
-                .collect(Collectors.groupingBy(r -> r.get("prefecture_code")));
+                .collect(Collectors.groupingBy(r -> r.get(COL_PREF_CODE)));
         Map<String, Object> body = new HashMap<>();
         body.put("data", grouped.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
                 e -> e.getValue().stream()
                         .map(r -> Map.of("id", r.get("id"), "name", r.get("name")))
-                        .collect(Collectors.toList()))));
+                        .toList())));
         body.put("prefectureCount", grouped.size());
         return ResponseEntity.ok(body);
     }
