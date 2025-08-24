@@ -13,6 +13,22 @@
 
 ---
 
+## 0) 연도 범위(startYear/endYear) 지원 추가
+
+요구사항: API-TEST에서 연도를 범위로 지정해(startYear, endYear) 해당 구간의 모든 연도를 조회·병합하여 보여준다. priceClassification 미지정 시 01/02 각각 범위 조회 후 병합하며, 서비스 모드에서 한 해라도 MLIT 사용 시 최종 source는 SERVICE=MLIT로 표시한다.
+
+- 프런트(UI)
+  - ApiTestPage에 startYear/endYear 셀렉터 추가
+  - 범위가 지정되면 year 파라미터는 생략하여 백엔드가 범위 처리 경로를 타도록 구성
+  - Full URL 미리보기도 동일 규칙 적용
+- 백엔드(컨트롤러)
+  - `getPrices(..., startYear, endYear, ...)` 파라미터 이미 존재
+  - city/area/station 케이스별로 연도 범위를 순회하며 연도별 DB 확인 → 필요 시 MLIT 폴백 후 병합 반환
+  - priceClassification 미지정(01/02 병합)에도 연도 범위 병합을 그대로 적용
+- source 표기 규칙(범위 전반)
+  - 범위 내 한 해라도 MLIT을 사용했다면 최종 `source`는 `SERVICE=MLIT`
+  - 전 연도가 DB로 충족되면 `SERVICE=DB`
+
 ## 1) 서비스 모드(source) 표기 정책 정정
 
 요구사항
@@ -83,7 +99,7 @@
 
 - 컴파일/린트
   - 백엔드: Spring Boot 빌드/기동 확인, 컨트롤러 컴파일 완료
-  - 프런트: ApiTestPage 및 관련 컴포넌트 ESLint 에러 없음
+  - 프런트: ApiTestPage 범위 기능 추가 후 조건식/URL 빌더 정리로 ESLint 경고 해결
 - 주의사항
   - MLIT 호출은 외부 네트워크 의존; 서비스 모드에서는 DB 백필이 진행될 수 있음
   - DB 스키마는 MLIT 거래가격 레코드 저장 구조가 필요함(별도 문서 1_CASHING_EXEC.md 참고)
