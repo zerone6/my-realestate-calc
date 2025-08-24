@@ -17,8 +17,9 @@ const PREF_NAMES: Record<string, string> = {
 export default function ApiTestPage() {
   // API 선택 (확장 대비)
   const [selectedApi, setSelectedApi] = useState<'XIT001'|'XIT002'>('XIT001')
-  const [area, setArea] = useState('')
-  const [city, setCity] = useState('')
+  // 기본값: 도쿄도(13) / 狛江市(13219)로 제한
+  const [area, setArea] = useState('13')
+  const [city, setCity] = useState('13219')
   const [station, setStation] = useState('')
   const [year, setYear] = useState(() => String(new Date().getFullYear()))
   const [loading, setLoading] = useState(false)
@@ -27,17 +28,19 @@ export default function ApiTestPage() {
 
   // municipalities data from backend cache
   const [muni, setMuni] = useState<Record<string, Array<{id:string,name:string}>> | null>(null)
-  const [pref, setPref] = useState<string>('') // selected prefecture code (2 digits)
-  const [cityId, setCityId] = useState<string>('') // selected city code (5 digits)
+  const [pref, setPref] = useState<string>('13') // selected prefecture code (2 digits)
+  const [cityId, setCityId] = useState<string>('13219') // selected city code (5 digits)
   const [loadingMuni, setLoadingMuni] = useState(false)
-  const [priceClassification, setPriceClassification] = useState('2') // 성약가격
+  const [priceClassification, setPriceClassification] = useState('02') // 成約価格 (MLIT expects 2-digit)
   const [quarter, setQuarter] = useState('')
   const [language, setLanguage] = useState('ja')
+  const [mode, setMode] = useState<'service'|'mlit'|'db'>('service')
+  const [resultSource, setResultSource] = useState<string>('')
 
   const fetchMunicipalities = async () => {
     try {
       setLoadingMuni(true)
-      const r = await fetch('/api/admin/mlit-cache/all')
+      const r = await fetch('/api/mlit/municipalities-grouped')
       const j = await r.json()
       setMuni(j?.data ?? null)
     } catch {
@@ -54,8 +57,9 @@ export default function ApiTestPage() {
 
   // when selections change, auto fill area/city fields used by API
   useEffect(() => {
-  setArea(pref || '')
-  setCityId('')
+    setArea(pref || '')
+    // Pref가 바뀌었을 때, 기존 cityId가 동일 Pref에 속하면 유지, 아니면 초기화
+    setCityId(prev => (prev && pref && prev.startsWith(pref) ? prev : ''))
   }, [pref])
   useEffect(() => {
     setCity(cityId || '')
@@ -65,6 +69,7 @@ export default function ApiTestPage() {
     setLoading(true)
     setError(null)
     setResult('')
+    setResultSource('')
     try {
       const params = new URLSearchParams()
       if (area) params.append('area', area)
@@ -74,10 +79,15 @@ export default function ApiTestPage() {
       if (priceClassification) params.append('priceClassification', priceClassification)
       if (quarter) params.append('quarter', quarter)
       if (language) params.append('language', language)
+      if (mode) params.append('mode', mode)
       const endpoint = selectedApi === 'XIT001' ? '/api/mlit/prices' : '/api/unsupported'
       const res = await fetch(`${endpoint}?${params.toString()}`)
       const text = await res.text()
       setResult(text)
+      try {
+        const j = JSON.parse(text)
+        if (j && typeof j === 'object' && j.source) setResultSource(String(j.source))
+      } catch {}
     } catch (e:any) {
       setError(e?.message ?? 'Unknown error')
     } finally {
@@ -93,7 +103,8 @@ export default function ApiTestPage() {
     if (year) params.append('year', year)
     if (priceClassification) params.append('priceClassification', priceClassification)
     if (quarter) params.append('quarter', quarter)
-    if (language) params.append('language', language)
+  if (language) { params.append('language', language) }
+  if (mode) { params.append('mode', mode) }
     const endpoint = selectedApi === 'XIT001' ? '/api/mlit/prices' : '/api/unsupported'
     return `${endpoint}?${params.toString()}`
   }
@@ -184,11 +195,19 @@ export default function ApiTestPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div>
+            <label htmlFor="mode" className="block text-sm text-gray-600 mb-1">테스트 방식</label>
+            <select id="mode" className="w-full border rounded px-3 py-2" value={mode} onChange={e=>setMode(e.target.value as any)}>
+              <option value="service">서비스로직 (DB 우선, MLIT 폴백)</option>
+              <option value="mlit">MLIT 직접 호출</option>
+              <option value="db">DB 캐시만</option>
+            </select>
+          </div>
+          <div>
             <label htmlFor="priceClassification" className="block text-sm text-gray-600 mb-1">priceClassification</label>
             <select id="priceClassification" className="w-full border rounded px-3 py-2" value={priceClassification} onChange={e=>setPriceClassification(e.target.value)}>
               <option value="">-- 선택 --</option>
-              <option value="1">取引価格</option>
-              <option value="2">成約価格</option>
+              <option value="01">取引価格</option>
+              <option value="02">成約価格</option>
             </select>
           </div>
           <div>
@@ -227,7 +246,14 @@ export default function ApiTestPage() {
 
       {/* 하단: 결과 영역 (가공 없이 그대로) */}
       <div className="max-w-4xl mx-auto bg-gray-900 text-green-300 rounded-lg shadow p-4">
-        <div className="text-sm text-gray-400 mb-2">Raw Result</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm text-gray-400">Raw Result</div>
+          {resultSource && (
+            <div className="text-xs">
+              <span className="inline-block px-2 py-0.5 rounded bg-gray-700 text-gray-200">source: {resultSource}</span>
+            </div>
+          )}
+        </div>
         <pre className="whitespace-pre-wrap break-all text-xs overflow-auto max-h-[60vh]">{result}</pre>
       </div>
     </div>
