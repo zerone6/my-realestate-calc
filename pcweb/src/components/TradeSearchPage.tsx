@@ -4,6 +4,8 @@ type ListItem = {
   id: number
   year: string
   quarter: string
+  priceClassification?: string
+  priceClassificationLabel?: string
   prefecture: string
   municipality: string
   districtName: string
@@ -86,6 +88,20 @@ export default function TradeSearchPage() {
   const [fPrefecture, setFPrefecture] = useState('')
   const [fMunicipality, setFMunicipality] = useState('')
   const [fDistrict, setFDistrict] = useState('')
+  const [fPriceClass, setFPriceClass] = useState('')
+
+  // dataset-wide facets for filter options
+  const [facetYears, setFacetYears] = useState<string[]>([])
+  const [facetQuarters, setFacetQuarters] = useState<string[]>([])
+  const [facetPrefectures, setFacetPrefectures] = useState<string[]>([])
+  const [facetMunicipalities, setFacetMunicipalities] = useState<string[]>([])
+  const [facetDistricts, setFacetDistricts] = useState<string[]>([])
+  const facetPriceClasses = [
+    { id: '', label: '전체' },
+    { id: '01', label: '取引価格' },
+    { id: '02', label: '成約価格' }
+  ]
+  const [loadingFacets, setLoadingFacets] = useState(false)
 
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -121,16 +137,25 @@ export default function TradeSearchPage() {
     setError(null)
     try {
       const params = new URLSearchParams()
-      if (area) params.append('area', area)
-      if (city) params.append('city', city)
-      if (station) params.append('station', station)
+  if (area) { params.append('area', area) }
+  if (city) { params.append('city', city) }
+  if (station) { params.append('station', station) }
       // normalize year range
-      const sy = parseInt(startYear || '0', 10)
-      const ey = parseInt(endYear || '0', 10)
+  // If a list-level Year filter is set, narrow the request to that single year
+  const sy = parseInt((fYear || startYear || '0'), 10)
+  const ey = parseInt((fYear || endYear || '0'), 10)
       const minY = Math.min(sy || 0, ey || 0)
       const maxY = Math.max(sy || 0, ey || 0)
-      if (minY) params.append('startYear', String(minY))
-      if (maxY) params.append('endYear', String(maxY))
+  if (minY) { params.append('startYear', String(minY)) }
+  if (maxY) { params.append('endYear', String(maxY)) }
+  // Apply list-level filters server-side so pagination reflects filtered dataset
+  if (fQuarter) { params.append('quarter', String(fQuarter)) }
+  if (fPrefecture) { params.append('prefecture', fPrefecture) }
+  if (fMunicipality) { params.append('municipality', fMunicipality) }
+  if (fDistrict) { params.append('districtName', fDistrict) }
+  // Effective price classification: list-level wins, then top-level
+  const effectivePriceClass = fPriceClass || priceClassification
+  if (effectivePriceClass) { params.append('priceClassification', effectivePriceClass) }
   // Intentionally do NOT send list-level filters (year/quarter/pref/muni/district)
   // These are applied client-side within the current page of results.
       params.append('page', String(page))
@@ -148,9 +173,49 @@ export default function TradeSearchPage() {
   useEffect(() => {
     fetchList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, size])
+  }, [page, size, fYear, fQuarter, fPrefecture, fMunicipality, fDistrict, fPriceClass])
+
+  const fetchFacets = async () => {
+    setLoadingFacets(true)
+    try {
+      const params = new URLSearchParams()
+      if (area) params.append('area', area)
+      if (city) params.append('city', city)
+      if (station) params.append('station', station)
+      // normalize year range
+      const sy = parseInt(startYear || '0', 10)
+      const ey = parseInt(endYear || '0', 10)
+      const minY = Math.min(sy || 0, ey || 0)
+      const maxY = Math.max(sy || 0, ey || 0)
+      if (minY) params.append('startYear', String(minY))
+      if (maxY) params.append('endYear', String(maxY))
+      if (priceClassification) params.append('priceClassification', String(priceClassification))
+      const res = await fetch(`/api/mlit/prices/facets?${params.toString()}`)
+      const j = await res.json()
+      setFacetYears((j?.years || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
+      setFacetQuarters((j?.quarters || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
+      setFacetPrefectures((j?.prefectures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetMunicipalities((j?.municipalities || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetDistricts((j?.districts || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+    } catch {
+      setFacetYears([]); setFacetQuarters([]); setFacetPrefectures([]); setFacetMunicipalities([]); setFacetDistricts([])
+    } finally {
+      setLoadingFacets(false)
+    }
+  }
+
+  // Refresh facets whenever scope changes (but not on page/size)
+  useEffect(() => {
+    fetchFacets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pref, cityId, station, startYear, endYear, priceClassification])
 
   const onSearch = () => { setPage(0); fetchList() }
+
+  // If any list-level filter changes, reset to first page to keep pagination consistent
+  useEffect(() => {
+    setPage(0)
+  }, [fYear, fQuarter, fPrefecture, fMunicipality, fDistrict, fPriceClass])
 
   const totalPages = useMemo(() => {
     if (!data) return 0
@@ -248,13 +313,22 @@ export default function TradeSearchPage() {
             {data?.source && <div className="text-xs px-2 py-1 bg-gray-100 rounded">source: {data.source}</div>}
           </div>
           {/* List-level filters */}
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-6 gap-3">
             <div>
               <label htmlFor="fYear" className="block text-xs text-gray-600 mb-1">연도</label>
               <select id="fYear" className="w-full border rounded px-2 py-1" value={fYear} onChange={e=>setFYear(e.target.value)}>
                 <option value="">전체</option>
-                {(data?.items||[]).map(i=>i.year).filter((v,i,a)=>!!v && a.indexOf(v)===i).sort((a,b)=>Number(b)-Number(a)).map(y=> (
+                {facetYears.map(y => (
                   <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              {loadingFacets && <div className="text-[10px] text-gray-500 mt-1">연도 로딩…</div>}
+            </div>
+            <div>
+              <label htmlFor="fPriceClass" className="block text-xs text-gray-600 mb-1">가격 구분</label>
+              <select id="fPriceClass" className="w-full border rounded px-2 py-1" value={fPriceClass} onChange={e=>setFPriceClass(e.target.value)}>
+                {facetPriceClasses.map(pc => (
+                  <option key={pc.id || 'all'} value={pc.id}>{pc.label}</option>
                 ))}
               </select>
             </div>
@@ -262,19 +336,18 @@ export default function TradeSearchPage() {
               <label htmlFor="fQuarter" className="block text-xs text-gray-600 mb-1">분기</label>
               <select id="fQuarter" className="w-full border rounded px-2 py-1" value={fQuarter} onChange={e=>setFQuarter(e.target.value)}>
                 <option value="">전체</option>
-                {[...new Set((data?.items||[]).map(i=>i.quarter).filter(Boolean))]
-                  .sort((a:any,b:any)=>Number(b)-Number(a)).map(q=> (
-                    <option key={String(q)} value={String(q)}>{q}</option>
+                {facetQuarters.map(q => (
+                  <option key={q} value={q}>{q}</option>
                 ))}
               </select>
+              {loadingFacets && <div className="text-[10px] text-gray-500 mt-1">분기 로딩…</div>}
             </div>
             <div>
               <label htmlFor="fPref" className="block text-xs text-gray-600 mb-1">현</label>
               <select id="fPref" className="w-full border rounded px-2 py-1" value={fPrefecture} onChange={e=>setFPrefecture(e.target.value)}>
                 <option value="">전체</option>
-                {[...new Set((data?.items||[]).map(i=>i.prefecture).filter(Boolean))]
-                  .sort((a,b)=>String(a).localeCompare(String(b))).map(p=> (
-                    <option key={String(p)} value={String(p)}>{p}</option>
+                {facetPrefectures.map(p => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
             </div>
@@ -282,9 +355,8 @@ export default function TradeSearchPage() {
               <label htmlFor="fMuni" className="block text-xs text-gray-600 mb-1">시구정촌</label>
               <select id="fMuni" className="w-full border rounded px-2 py-1" value={fMunicipality} onChange={e=>setFMunicipality(e.target.value)}>
                 <option value="">전체</option>
-                {[...new Set((data?.items||[]).map(i=>i.municipality).filter(Boolean))]
-                  .sort((a,b)=>String(a).localeCompare(String(b))).map(m=> (
-                    <option key={String(m)} value={String(m)}>{m}</option>
+                {facetMunicipalities.map(m => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
@@ -292,24 +364,15 @@ export default function TradeSearchPage() {
               <label htmlFor="fDistrict" className="block text-xs text-gray-600 mb-1">District</label>
               <select id="fDistrict" className="w-full border rounded px-2 py-1" value={fDistrict} onChange={e=>setFDistrict(e.target.value)}>
                 <option value="">전체</option>
-                {[...new Set((data?.items||[]).map(i=>i.districtName).filter(Boolean))]
-                  .sort((a,b)=>String(a).localeCompare(String(b))).map(d=> (
-                    <option key={String(d)} value={String(d)}>{d}</option>
+                {facetDistricts.map(d => (
+                  <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFQuarter(''); setFPrefecture(''); setFMunicipality(''); setFDistrict(''); }}>필터 초기화</button>
-            <div className="text-xs text-gray-600">표시 {
-              (data?.items||[]).filter(it => (
-                (!fYear || it.year === fYear) &&
-                (!fQuarter || String(it.quarter) === String(fQuarter)) &&
-                (!fPrefecture || it.prefecture === fPrefecture) &&
-                (!fMunicipality || it.municipality === fMunicipality) &&
-                (!fDistrict || it.districtName === fDistrict)
-              )).length
-            }건</div>
+      <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFQuarter(''); setFPrefecture(''); setFMunicipality(''); setFDistrict(''); setFPriceClass(''); setPage(0); }}>필터 초기화</button>
+            <div className="text-xs text-gray-600">표시 {(data?.items||[]).length}건</div>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -321,36 +384,24 @@ export default function TradeSearchPage() {
                 <th className="px-3 py-2 text-left">현</th>
                 <th className="px-3 py-2 text-left">시구정촌</th>
                 <th className="px-3 py-2 text-left">District name</th>
+                <th className="px-3 py-2 text-left">가격 구분</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
               )}
-              {!loading && ((data?.items||[]).filter(it => (
-                (!fYear || it.year === fYear) &&
-                (!fQuarter || String(it.quarter) === String(fQuarter)) &&
-                (!fPrefecture || it.prefecture === fPrefecture) &&
-                (!fMunicipality || it.municipality === fMunicipality) &&
-                (!fDistrict || it.districtName === fDistrict)
-              )).length === 0) && (
+              {!loading && ((data?.items||[]).length === 0) && (
                 <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
               )}
-              {!loading && (data?.items || [])
-                .filter(it => (
-                  (!fYear || it.year === fYear) &&
-                  (!fQuarter || String(it.quarter) === String(fQuarter)) &&
-                  (!fPrefecture || it.prefecture === fPrefecture) &&
-                  (!fMunicipality || it.municipality === fMunicipality) &&
-                  (!fDistrict || it.districtName === fDistrict)
-                ))
-                .map(item => (
+        {!loading && (data?.items || []).map(item => (
                 <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
                   <td className="px-3 py-2">{item.year}</td>
                   <td className="px-3 py-2">{item.quarter}</td>
                   <td className="px-3 py-2">{item.prefecture}</td>
                   <td className="px-3 py-2">{item.municipality}</td>
                   <td className="px-3 py-2">{item.districtName}</td>
+                  <td className="px-3 py-2">{item.priceClassificationLabel || (item.priceClassification === '02' ? '成約価格' : '取引価格')}</td>
                 </tr>
               ))}
             </tbody>
