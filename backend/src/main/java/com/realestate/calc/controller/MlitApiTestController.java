@@ -460,7 +460,25 @@ public class MlitApiTestController {
         if (hasAreaOnly) {
             return handleServiceArea(qp, startYear, endYear);
         }
-        // Fallback path (e.g., station): treat as MLIT but expose SERVICE=MLIT
+        // Fallback path (e.g., station): support year range merge; otherwise
+        // single-call
+        if (isBlank(qp.get(K_YEAR)) && (!isBlank(startYear) || !isBlank(endYear))) {
+            int[] se = parseYearRange(startYear, endYear);
+            ObjectMapper mapper = new ObjectMapper();
+            com.fasterxml.jackson.databind.node.ArrayNode combined = mapper.createArrayNode();
+            for (int y = se[0]; y <= se[1]; y++) {
+                Map<String, String> req = new java.util.HashMap<>(qp);
+                req.put(K_YEAR, String.valueOf(y));
+                String body = mlitFetchAndIngest(req).getBody();
+                addDataArray(combined, body);
+            }
+            var out = mapper.createObjectNode();
+            out.put(K_STATUS, "OK");
+            out.put(K_SOURCE, SRC_SERVICE_MLIT);
+            out.set("data", combined);
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(out.toString());
+        }
+        // Single-year station path: treat as MLIT but expose SERVICE=MLIT
         return rewriteServiceSourceResponse(mlitFetchAndIngest(qp));
     }
 
@@ -501,6 +519,20 @@ public class MlitApiTestController {
             String body = queryService.jsonForCity(city, year, priceClass, null);
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
                     .body(setServiceSource(body, usedMlit));
+        }
+        // Range case: if DB already has any rows in range, return them directly
+        // (SERVICE=DB)
+        String existing = queryService.jsonForCityRange(city, startYear, endYear, priceClass, null);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(existing);
+            JsonNode data = root.path("data");
+            if (data != null && data.isArray() && data.size() > 0) {
+                return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+                        .body(setServiceSource(existing, false));
+            }
+        } catch (Exception ignore) {
+            // fall through to backfill path
         }
         int[] se = parseYearRange(startYear, endYear);
         boolean usedAny = false;

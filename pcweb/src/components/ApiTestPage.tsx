@@ -22,6 +22,8 @@ export default function ApiTestPage() {
   const [city, setCity] = useState('13219')
   const [station, setStation] = useState('')
   const [year, setYear] = useState(() => String(new Date().getFullYear()))
+  const [startYear, setStartYear] = useState('')
+  const [endYear, setEndYear] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<string>('')
@@ -65,23 +67,21 @@ export default function ApiTestPage() {
     setCity(cityId || '')
   }, [cityId])
 
+  // If a year range is selected, clear the single-year field to "-- 선택 --"
+  useEffect(() => {
+    if (startYear || endYear) {
+      setYear('')
+    }
+  }, [startYear, endYear])
+
   const callApi = async () => {
     setLoading(true)
     setError(null)
     setResult('')
     setResultSource('')
     try {
-      const params = new URLSearchParams()
-      if (area) params.append('area', area)
-      if (city) params.append('city', city)
-      if (station) params.append('station', station)
-      if (year) params.append('year', year)
-      if (priceClassification) params.append('priceClassification', priceClassification)
-      if (quarter) params.append('quarter', quarter)
-      if (language) params.append('language', language)
-      if (mode) params.append('mode', mode)
-      const endpoint = selectedApi === 'XIT001' ? '/api/mlit/prices' : '/api/unsupported'
-      const res = await fetch(`${endpoint}?${params.toString()}`)
+  const url = buildFullUrl()
+  const res = await fetch(url)
       const text = await res.text()
       setResult(text)
       try {
@@ -100,9 +100,12 @@ export default function ApiTestPage() {
     if (area) params.append('area', area)
     if (city) params.append('city', city)
     if (station) params.append('station', station)
-    if (year) params.append('year', year)
-    if (priceClassification) params.append('priceClassification', priceClassification)
-    if (quarter) params.append('quarter', quarter)
+  const hasRange = !!(startYear || endYear)
+  if (!hasRange && year) { params.append('year', year) }
+  if (startYear) { params.append('startYear', startYear) }
+  if (endYear) { params.append('endYear', endYear) }
+  if (priceClassification) { params.append('priceClassification', priceClassification) }
+  if (quarter) { params.append('quarter', quarter) }
   if (language) { params.append('language', language) }
   if (mode) { params.append('mode', mode) }
     const endpoint = selectedApi === 'XIT001' ? '/api/mlit/prices' : '/api/unsupported'
@@ -171,8 +174,34 @@ export default function ApiTestPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div>
-            <label htmlFor="year" className="block text-sm text-gray-600 mb-1">year (연도)</label>
+            <label htmlFor="year" className="block text-sm text-gray-600 mb-1">year (단일 연도)</label>
             <select id="year" value={year} onChange={e=>setYear(e.target.value)} className="w-full border rounded px-3 py-2">
+              <option value="">-- 선택 --</option>
+              {(() => {
+                const now = new Date()
+                const maxYear = now.getFullYear()
+                const years = [] as number[]
+                for (let y = maxYear; y >= 2000; y--) years.push(y)
+                return years.map(y => <option key={y} value={String(y)}>{y}</option>)
+              })()}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="startYear" className="block text-sm text-gray-600 mb-1">startYear (시작 연도)</label>
+            <select id="startYear" value={startYear} onChange={e=>setStartYear(e.target.value)} className="w-full border rounded px-3 py-2">
+              <option value="">-- 선택 --</option>
+              {(() => {
+                const now = new Date()
+                const maxYear = now.getFullYear()
+                const years = [] as number[]
+                for (let y = maxYear; y >= 2000; y--) years.push(y)
+                return years.map(y => <option key={y} value={String(y)}>{y}</option>)
+              })()}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="endYear" className="block text-sm text-gray-600 mb-1">endYear (종료 연도)</label>
+            <select id="endYear" value={endYear} onChange={e=>setEndYear(e.target.value)} className="w-full border rounded px-3 py-2">
               <option value="">-- 선택 --</option>
               {(() => {
                 const now = new Date()
