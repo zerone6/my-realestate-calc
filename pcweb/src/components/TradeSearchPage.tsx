@@ -1,75 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ListResponse, MuniGrouped } from '../../../shared/types/Trade'
+import { PREF_NAMES, TRADE_LABELS as LABELS } from '../../../shared/data/tradeLabels'
 
-type ListItem = {
-  id: number
-  year: string
-  quarter: string
-  priceClassification?: string
-  priceClassificationLabel?: string
-  prefecture: string
-  municipality: string
-  districtName: string
-}
+type Prefill = { pref?: string; cityId?: string; district1?: string }
 
-type ListResponse = {
-  status: string
-  source: string
-  page: number
-  size: number
-  total: number
-  items: ListItem[]
-}
-
-type MuniGrouped = Record<string, Array<{ id: string; name: string }>>
-
-const PREF_NAMES: Record<string, string> = {
-  '01': '北海道', '02': '青森県', '03': '岩手県', '04': '宮城県', '05': '秋田県',
-  '06': '山形県', '07': '福島県', '08': '茨城県', '09': '栃木県', '10': '群馬県',
-  '11': '埼玉県', '12': '千葉県', '13': '東京都', '14': '神奈川県', '15': '新潟県',
-  '16': '富山県', '17': '石川県', '18': '福井県', '19': '山梨県', '20': '長野県',
-  '21': '岐阜県', '22': '静岡県', '23': '愛知県', '24': '三重県', '25': '滋賀県',
-  '26': '京都府', '27': '大阪府', '28': '兵庫県', '29': '奈良県', '30': '和歌山県',
-  '31': '鳥取県', '32': '島根県', '33': '岡山県', '34': '広島県', '35': '山口県',
-  '36': '徳島県', '37': '香川県', '38': '愛媛県', '39': '高知県', '40': '福岡県',
-  '41': '佐賀県', '42': '長崎県', '43': '熊本県', '44': '大分県', '45': '宮崎県',
-  '46': '鹿児島県', '47': '沖縄県'
-}
-
-const LABELS: Record<string, string> = {
-  PriceCategory: '가격 구분',
-  Type: '유형',
-  Region: '지역',
-  MunicipalityCode: '시구정촌 코드',
-  Prefecture: '현',
-  Municipality: '시구정촌',
-  DistrictName: '지구명',
-  TradePrice: '거래가격',
-  PricePerUnit: '단가(거래)',
-  FloorPlan: '평면',
-  Area: '면적(토지/전용)',
-  UnitPrice: '단가',
-  LandShape: '토지 형상',
-  Frontage: '접도 길이',
-  TotalFloorArea: '연면적',
-  BuildingYear: '건축년도',
-  Structure: '구조',
-  Use: '용도',
-  Purpose: '목적',
-  Direction: '방향',
-  Classification: '분류',
-  Breadth: '도로 폭',
-  CityPlanning: '도시계획',
-  CoverageRatio: '건폐율',
-  FloorAreaRatio: '용적률',
-  Period: '기간',
-  Renovation: '리노베이션',
-  Remarks: '비고'
-}
-
-export default function TradeSearchPage() {
+export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefill }>) {
   // filters
-  const [pref, setPref] = useState('13')
-  const [cityId, setCityId] = useState('13219')
+  const [pref, setPref] = useState(prefill?.pref ?? '')
+  const [cityId, setCityId] = useState(prefill?.cityId ?? '')
   const [station, setStation] = useState('')
   const [startYear, setStartYear] = useState('2000')
   const [endYear, setEndYear] = useState(String(new Date().getFullYear()))
@@ -82,25 +20,19 @@ export default function TradeSearchPage() {
 
   const [muni, setMuni] = useState<MuniGrouped | null>(null)
   const [loadingMuni, setLoadingMuni] = useState(false)
-  // List-level (client-side) filters
+  // List-level (client-side) filters (aligned to table)
   const [fYear, setFYear] = useState('')
-  const [fQuarter, setFQuarter] = useState('')
-  const [fPrefecture, setFPrefecture] = useState('')
-  const [fMunicipality, setFMunicipality] = useState('')
-  const [fDistrict, setFDistrict] = useState('')
-  const [fPriceClass, setFPriceClass] = useState('')
+  const [fType, setFType] = useState('')
+  const [fFloorPlan, setFFloorPlan] = useState('')
+  const [fBuildingYear, setFBuildingYear] = useState('')
+  const [fStructure, setFStructure] = useState('')
 
   // dataset-wide facets for filter options
   const [facetYears, setFacetYears] = useState<string[]>([])
-  const [facetQuarters, setFacetQuarters] = useState<string[]>([])
-  const [facetPrefectures, setFacetPrefectures] = useState<string[]>([])
-  const [facetMunicipalities, setFacetMunicipalities] = useState<string[]>([])
-  const [facetDistricts, setFacetDistricts] = useState<string[]>([])
-  const facetPriceClasses = [
-    { id: '', label: '전체' },
-    { id: '01', label: '取引価格' },
-    { id: '02', label: '成約価格' }
-  ]
+  const [facetTypes, setFacetTypes] = useState<string[]>([])
+  const [facetFloorPlans, setFacetFloorPlans] = useState<string[]>([])
+  const [facetBuildingYears, setFacetBuildingYears] = useState<string[]>([])
+  const [facetStructures, setFacetStructures] = useState<string[]>([])
   const [loadingFacets, setLoadingFacets] = useState(false)
 
   const [data, setData] = useState<ListResponse | null>(null)
@@ -110,8 +42,16 @@ export default function TradeSearchPage() {
 
   const area = useMemo(() => pref || '', [pref])
   const city = useMemo(() => cityId || '', [cityId])
+  const prefillPending = useRef(false)
 
   useEffect(() => {
+    // apply prefill if provided
+    if (prefill) {
+      if (prefill.pref) setPref(prefill.pref)
+      if (prefill.cityId) setCityId(prefill.cityId)
+  // district1 prefill no longer maps to a list-level filter
+      prefillPending.current = true
+    }
     const run = async () => {
       try {
         setLoadingMuni(true)
@@ -125,6 +65,23 @@ export default function TradeSearchPage() {
       }
     }
     run()
+  }, [prefill])
+
+  // When prefill changed underlying scope, trigger a fetch once
+  useEffect(() => {
+    if (prefillPending.current) {
+      prefillPending.current = false
+      fetchList()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pref, cityId])
+
+  // Ensure initial auto-search on tab open
+  useEffect(() => {
+    // If we have prefill coming in, skip the default fetch to avoid flashing defaults
+    const hasPrefill = !!(prefill && (prefill.pref || prefill.cityId))
+    if (!hasPrefill) fetchList()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -148,19 +105,19 @@ export default function TradeSearchPage() {
       const maxY = Math.max(sy || 0, ey || 0)
   if (minY) { params.append('startYear', String(minY)) }
   if (maxY) { params.append('endYear', String(maxY)) }
+  if (priceClassification) { params.append('priceClassification', priceClassification) }
   // Apply list-level filters server-side so pagination reflects filtered dataset
-  if (fQuarter) { params.append('quarter', String(fQuarter)) }
-  if (fPrefecture) { params.append('prefecture', fPrefecture) }
-  if (fMunicipality) { params.append('municipality', fMunicipality) }
-  if (fDistrict) { params.append('districtName', fDistrict) }
-  // Effective price classification: list-level wins, then top-level
-  const effectivePriceClass = fPriceClass || priceClassification
-  if (effectivePriceClass) { params.append('priceClassification', effectivePriceClass) }
+  // Apply list-level filters aligned to table
+  if (fType) { params.append('type', fType) }
+  if (fFloorPlan) { params.append('floorPlan', fFloorPlan) }
+  if (fBuildingYear) { params.append('buildingYear', fBuildingYear) }
+  if (fStructure) { params.append('structure', fStructure) }
   // Intentionally do NOT send list-level filters (year/quarter/pref/muni/district)
   // These are applied client-side within the current page of results.
       params.append('page', String(page))
       params.append('size', String(size))
-      const res = await fetch(`/api/mlit/prices/list?${params.toString()}`)
+  params.append('mode', 'SERVICE')
+  const res = await fetch(`/api/mlit/prices/list?${params.toString()}`)
       const j: ListResponse = await res.json()
       setData(j)
     } catch (e: any) {
@@ -173,7 +130,7 @@ export default function TradeSearchPage() {
   useEffect(() => {
     fetchList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, size, fYear, fQuarter, fPrefecture, fMunicipality, fDistrict, fPriceClass])
+  }, [page, size, fYear, fType, fFloorPlan, fBuildingYear, fStructure])
 
   const fetchFacets = async () => {
     setLoadingFacets(true)
@@ -190,15 +147,16 @@ export default function TradeSearchPage() {
       if (minY) params.append('startYear', String(minY))
       if (maxY) params.append('endYear', String(maxY))
       if (priceClassification) params.append('priceClassification', String(priceClassification))
-      const res = await fetch(`/api/mlit/prices/facets?${params.toString()}`)
+  params.append('mode', 'SERVICE')
+  const res = await fetch(`/api/mlit/prices/facets?${params.toString()}`)
       const j = await res.json()
-      setFacetYears((j?.years || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
-      setFacetQuarters((j?.quarters || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
-      setFacetPrefectures((j?.prefectures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-      setFacetMunicipalities((j?.municipalities || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-      setFacetDistricts((j?.districts || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+    setFacetYears((j?.years || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
+  setFacetTypes((j?.types || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+  setFacetFloorPlans((j?.floorPlans || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+  setFacetBuildingYears((j?.buildingYears || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
+  setFacetStructures((j?.structures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
     } catch {
-      setFacetYears([]); setFacetQuarters([]); setFacetPrefectures([]); setFacetMunicipalities([]); setFacetDistricts([])
+  setFacetYears([]); setFacetTypes([]); setFacetFloorPlans([]); setFacetBuildingYears([]); setFacetStructures([])
     } finally {
       setLoadingFacets(false)
     }
@@ -215,7 +173,7 @@ export default function TradeSearchPage() {
   // If any list-level filter changes, reset to first page to keep pagination consistent
   useEffect(() => {
     setPage(0)
-  }, [fYear, fQuarter, fPrefecture, fMunicipality, fDistrict, fPriceClass])
+  }, [fYear, fType, fFloorPlan, fBuildingYear, fStructure])
 
   const totalPages = useMemo(() => {
     if (!data) return 0
@@ -233,10 +191,24 @@ export default function TradeSearchPage() {
     }
   }
 
+  const formatManYen = (v: unknown) => {
+    if (v === null || v === undefined) return ''
+    let n: number
+    if (typeof v === 'string') {
+      n = parseFloat(v)
+    } else if (typeof v === 'number') {
+      n = v
+    } else {
+      return ''
+    }
+    if (Number.isNaN(n)) return ''
+    return Math.round(n / 10000).toLocaleString()
+  }
+
   return (
-    <div className="pt-16 px-4">
-      <div className="max-w-6xl mx-auto bg-white rounded-lg shadow p-4 mb-6">
-        <div className="text-lg font-semibold mb-3">거래 검색</div>
+    <div>
+      <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-4 lg:p-6 mb-6">
+        <div className="text-base lg:text-lg font-semibold mb-3">거래 검색</div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label htmlFor="pref" className="block text-sm text-gray-600 mb-1">도도부현 (2자리)</label>
@@ -253,7 +225,7 @@ export default function TradeSearchPage() {
             <select id="city" className="w-full border rounded px-3 py-2" value={cityId} onChange={e=>setCityId(e.target.value)} disabled={!pref}>
               <option value="">-- 선택 --</option>
               {pref && muni?.[pref]?.map(c => (
-                <option key={c.id} value={c.id}>{c.id} - {c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
@@ -306,14 +278,14 @@ export default function TradeSearchPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
+      <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md">
+        <div className="p-4 lg:p-6 border-b">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">총 {data?.total ?? 0}건</div>
             {data?.source && <div className="text-xs px-2 py-1 bg-gray-100 rounded">source: {data.source}</div>}
           </div>
-          {/* List-level filters */}
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-6 gap-3">
+          {/* List-level filters aligned to table */}
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
               <label htmlFor="fYear" className="block text-xs text-gray-600 mb-1">연도</label>
               <select id="fYear" className="w-full border rounded px-2 py-1" value={fYear} onChange={e=>setFYear(e.target.value)}>
@@ -325,89 +297,84 @@ export default function TradeSearchPage() {
               {loadingFacets && <div className="text-[10px] text-gray-500 mt-1">연도 로딩…</div>}
             </div>
             <div>
-              <label htmlFor="fPriceClass" className="block text-xs text-gray-600 mb-1">가격 구분</label>
-              <select id="fPriceClass" className="w-full border rounded px-2 py-1" value={fPriceClass} onChange={e=>setFPriceClass(e.target.value)}>
-                {facetPriceClasses.map(pc => (
-                  <option key={pc.id || 'all'} value={pc.id}>{pc.label}</option>
+              <label htmlFor="fType" className="block text-xs text-gray-600 mb-1">유형</label>
+              <select id="fType" className="w-full border rounded px-2 py-1" value={fType} onChange={e=>setFType(e.target.value)}>
+                <option value="">전체</option>
+                {facetTypes.map(t => (
+                  <option key={t} value={t}>{t}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor="fQuarter" className="block text-xs text-gray-600 mb-1">분기</label>
-              <select id="fQuarter" className="w-full border rounded px-2 py-1" value={fQuarter} onChange={e=>setFQuarter(e.target.value)}>
+              <label htmlFor="fFloorPlan" className="block text-xs text-gray-600 mb-1">평면</label>
+              <select id="fFloorPlan" className="w-full border rounded px-2 py-1" value={fFloorPlan} onChange={e=>setFFloorPlan(e.target.value)}>
                 <option value="">전체</option>
-                {facetQuarters.map(q => (
-                  <option key={q} value={q}>{q}</option>
-                ))}
-              </select>
-              {loadingFacets && <div className="text-[10px] text-gray-500 mt-1">분기 로딩…</div>}
-            </div>
-            <div>
-              <label htmlFor="fPref" className="block text-xs text-gray-600 mb-1">현</label>
-              <select id="fPref" className="w-full border rounded px-2 py-1" value={fPrefecture} onChange={e=>setFPrefecture(e.target.value)}>
-                <option value="">전체</option>
-                {facetPrefectures.map(p => (
-                  <option key={p} value={p}>{p}</option>
+                {facetFloorPlans.map(fp => (
+                  <option key={fp} value={fp}>{fp}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor="fMuni" className="block text-xs text-gray-600 mb-1">시구정촌</label>
-              <select id="fMuni" className="w-full border rounded px-2 py-1" value={fMunicipality} onChange={e=>setFMunicipality(e.target.value)}>
+              <label htmlFor="fBuildingYear" className="block text-xs text-gray-600 mb-1">건축연도</label>
+              <select id="fBuildingYear" className="w-full border rounded px-2 py-1" value={fBuildingYear} onChange={e=>setFBuildingYear(e.target.value)}>
                 <option value="">전체</option>
-                {facetMunicipalities.map(m => (
-                  <option key={m} value={m}>{m}</option>
+                {facetBuildingYears.map(y => (
+                  <option key={y} value={y}>{y}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor="fDistrict" className="block text-xs text-gray-600 mb-1">District</label>
-              <select id="fDistrict" className="w-full border rounded px-2 py-1" value={fDistrict} onChange={e=>setFDistrict(e.target.value)}>
+              <label htmlFor="fStructure" className="block text-xs text-gray-600 mb-1">구조</label>
+              <select id="fStructure" className="w-full border rounded px-2 py-1" value={fStructure} onChange={e=>setFStructure(e.target.value)}>
                 <option value="">전체</option>
-                {facetDistricts.map(d => (
-                  <option key={d} value={d}>{d}</option>
+                {facetStructures.map(s => (
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
           </div>
           <div className="mt-2 flex items-center gap-3">
-      <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFQuarter(''); setFPrefecture(''); setFMunicipality(''); setFDistrict(''); setFPriceClass(''); setPage(0); }}>필터 초기화</button>
+      <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
             <div className="text-xs text-gray-600">표시 {(data?.items||[]).length}건</div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-gray-700">
-              <tr>
-                <th className="px-3 py-2 text-left">연도</th>
-                <th className="px-3 py-2 text-left">분기</th>
-                <th className="px-3 py-2 text-left">현</th>
-                <th className="px-3 py-2 text-left">시구정촌</th>
-                <th className="px-3 py-2 text-left">District name</th>
-                <th className="px-3 py-2 text-left">가격 구분</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
-              )}
-              {!loading && ((data?.items||[]).length === 0) && (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
-              )}
-        {!loading && (data?.items || []).map(item => (
-                <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
-                  <td className="px-3 py-2">{item.year}</td>
-                  <td className="px-3 py-2">{item.quarter}</td>
-                  <td className="px-3 py-2">{item.prefecture}</td>
-                  <td className="px-3 py-2">{item.municipality}</td>
-                  <td className="px-3 py-2">{item.districtName}</td>
-                  <td className="px-3 py-2">{item.priceClassificationLabel || (item.priceClassification === '02' ? '成約価格' : '取引価格')}</td>
+        <div className="p-4 lg:p-6">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="px-3 py-2 text-left">연도</th>
+                  <th className="px-3 py-2 text-left">유형</th>
+                  <th className="px-3 py-2 text-right">거래가격(만엔)</th>
+                  <th className="px-3 py-2 text-left">평면</th>
+                  <th className="px-3 py-2 text-left">면적(토지/전용)</th>
+                  <th className="px-3 py-2 text-left">건축연도</th>
+                  <th className="px-3 py-2 text-left">구조</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
+                )}
+                {!loading && ((data?.items||[]).length === 0) && (
+                  <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
+                )}
+          {!loading && (data?.items || []).map(item => (
+                  <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
+                    <td className="px-3 py-2">{item.year}</td>
+                    <td className="px-3 py-2">{item.type}</td>
+                    <td className="px-3 py-2 text-right">{formatManYen(item.tradePrice)}</td>
+                    <td className="px-3 py-2">{item.floorPlan}</td>
+                    <td className="px-3 py-2">{[item.landArea, item.exclusiveArea].filter(Boolean).join(' / ')}</td>
+                    <td className="px-3 py-2">{item.buildingYear}</td>
+                    <td className="px-3 py-2">{item.structure}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="p-4 border-t flex items-center justify-between">
+  <div className="p-4 lg:p-6 border-t flex items-center justify-between">
           <div className="text-sm text-gray-600">페이지 { (data?.page ?? page) + 1 } / { totalPages }</div>
           <div className="flex items-center gap-2">
             <button className="px-3 py-1 border rounded disabled:opacity-50" onClick={()=>setPage(p=>Math.max(0, p-1))} disabled={page<=0 || loading}>이전</button>

@@ -161,7 +161,7 @@ export default function ApiTestPage() {
             <select id="cityId" value={cityId} onChange={e=>setCityId(e.target.value)} className="w-full border rounded px-3 py-2" disabled={!pref}>
               <option value="">-- 선택 --</option>
               {pref && muni?.[pref]?.map(c => (
-                <option key={c.id} value={c.id}>{c.id} - {c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>

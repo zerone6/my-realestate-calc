@@ -3,8 +3,55 @@ import MultiStepInputForm from './MultiStepInputForm'
 import AuthButtons from './AuthButtons'
 import { ResultCard } from './ResultCard'
 import { CalculationResult, FormInputData } from '../../../shared/types/RealEstateForm'
+import TradeSearchPage from './TradeSearchPage'
 import { calculateRealEstate, loadData, saveData } from '../../../shared/api/realEstateApi'
 import { convertFormToRequest } from '../../../shared/utils/formUtils'
+
+// Auxiliary placeholder tabs moved to module scope to satisfy lint rules
+function RouteInfoTab() {
+  return (
+    <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
+      <div className="text-center py-20">
+        <div className="text-6xl mb-4">�</div>
+        <h2 className="text-2xl font-bold mb-4">노선가 정보</h2>
+        <p className="text-gray-600 mb-4">노선가, 역세권 정보, 교통 접근성 분석</p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-800">🚧 개발 중인 기능입니다</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AreaInfoTab() {
+  return (
+    <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
+      <div className="text-center py-20">
+        <div className="text-6xl mb-4">🏢</div>
+        <h2 className="text-2xl font-bold mb-4">주변 정보</h2>
+        <p className="text-gray-600 mb-4">편의시설, 학교, 병원, 상권 정보</p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-800">🚧 개발 중인 기능입니다</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MarketTrendTab() {
+  return (
+    <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
+      <div className="text-center py-20">
+        <div className="text-6xl mb-4">�</div>
+        <h2 className="text-2xl font-bold mb-4">시세 동향</h2>
+        <p className="text-gray-600 mb-4">해당 지역 부동산 시세 변화 및 전망</p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-800">🚧 개발 중인 기능입니다</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function CalculatorApp() {
   const [result, setResult] = useState<CalculationResult | null>(null)
@@ -17,13 +64,15 @@ function CalculatorApp() {
   const [activeTab, setActiveTab] = useState(0) // 현재 활성 탭
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false) // 모바일 사이드바 상태
   const [userId, setUserId] = useState<string | null>(null) // 로그인 사용자 ID
+  const [tradePrefill, setTradePrefill] = useState<{pref?:string; cityId?:string; district1?:string}|null>(null)
 
   // 탭 정보
   const tabs = [
     { id: 0, name: '수익 계산', icon: '🧮' },
-    { id: 1, name: '노선가 정보', icon: '�' },
-    { id: 2, name: '주변 정보', icon: '🏢' },
-    { id: 3, name: '시세 동향', icon: '�' }
+    { id: 1, name: '거래가 검색', icon: '📊' },
+    { id: 2, name: '노선가 정보', icon: '�' },
+    { id: 3, name: '주변 정보', icon: '🏢' },
+    { id: 4, name: '시세 동향', icon: '�' }
   ]
 
   // 로그인/로그아웃 이벤트 처리: 로그인 시 유저 데이터 로드, 로그아웃 시 저장 후 화면 초기화
@@ -73,6 +122,16 @@ function CalculatorApp() {
     return () => window.removeEventListener('authChange' as any, handleAuthChange as EventListener)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, savedItems])
+
+  // Receive prefill from MultiStepInputForm when district1 selected
+  useEffect(() => {
+    const h = (e: any) => {
+      const d = e?.detail || {}
+      setTradePrefill({ pref: d.pref, cityId: d.cityId, district1: d.district1 })
+    }
+    window.addEventListener('tradeSearchPrefill' as any, h as EventListener)
+    return () => window.removeEventListener('tradeSearchPrefill' as any, h as EventListener)
+  }, [])
 
   const handleCalculate = async (form: FormInputData) => {
     setLoading(true)
@@ -147,6 +206,13 @@ function CalculatorApp() {
     if (activeForm?.name?.trim()) {
       handleAutoSave(activeForm)
     }
+    // When moving to Trade Search, pass current form location as prefill
+    if (tabId === 1) {
+      const f = activeForm
+      if (f) {
+        setTradePrefill({ pref: f.pref, cityId: f.cityId, district1: f.district1 })
+      }
+    }
     setActiveTab(tabId)
   }
 
@@ -167,44 +233,7 @@ function CalculatorApp() {
   }
 
   // 임시 탭 컴포넌트들
-  const RouteInfoTab = () => (
-  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
-      <div className="text-center py-20">
-        <div className="text-6xl mb-4">�</div>
-        <h2 className="text-2xl font-bold mb-4">노선가 정보</h2>
-        <p className="text-gray-600 mb-4">노선가, 역세권 정보, 교통 접근성 분석</p>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">🚧 개발 중인 기능입니다</p>
-        </div>
-      </div>
-    </div>
-  )
-
-  const AreaInfoTab = () => (
-  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
-      <div className="text-center py-20">
-        <div className="text-6xl mb-4">🏢</div>
-        <h2 className="text-2xl font-bold mb-4">주변 정보</h2>
-        <p className="text-gray-600 mb-4">편의시설, 학교, 병원, 상권 정보</p>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">🚧 개발 중인 기능입니다</p>
-        </div>
-      </div>
-    </div>
-  )
-
-  const MarketTrendTab = () => (
-  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-6">
-      <div className="text-center py-20">
-        <div className="text-6xl mb-4">�</div>
-        <h2 className="text-2xl font-bold mb-4">시세 동향</h2>
-        <p className="text-gray-600 mb-4">해당 지역 부동산 시세 변화 및 전망</p>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">🚧 개발 중인 기능입니다</p>
-        </div>
-      </div>
-    </div>
-  )
+  
 
   // 현재 탭의 콘텐츠 렌더링
   const renderTabContent = () => {
@@ -254,10 +283,12 @@ function CalculatorApp() {
           </>
         )
       case 1:
-        return <RouteInfoTab />
+        return <TradeSearchPage prefill={tradePrefill || undefined} />
       case 2:
-        return <AreaInfoTab />
+        return <RouteInfoTab />
       case 3:
+        return <AreaInfoTab />
+      case 4:
         return <MarketTrendTab />
       default:
         return null
