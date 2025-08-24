@@ -272,6 +272,18 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     return Math.round(n / 10000).toLocaleString()
   }
 
+  const formatManYenOneDecimal = (v: unknown) => {
+    if (v === null || v === undefined) return ''
+    let num: number
+    if (typeof v === 'string') num = parseFloat(v)
+    else if (typeof v === 'number') num = v
+    else return ''
+    if (!Number.isFinite(num)) return ''
+    const man = num / 10000
+    const floored = Math.floor(man * 10) / 10
+    return floored.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  }
+
   return (
     <div>
       <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-4 lg:p-6 mb-6">
@@ -423,6 +435,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                   <th className="px-3 py-2 text-left">세부1</th>
                   <th className="px-3 py-2 text-left">유형</th>
                   <th className="px-3 py-2 text-right">거래가격(만엔)</th>
+                  <th className="px-3 py-2 text-right">평단가(만엔)</th>
                   <th className="px-3 py-2 text-left">평면</th>
                   <th className="px-3 py-2 text-left">면적(토지/전용)</th>
                   <th className="px-3 py-2 text-left">건축연도</th>
@@ -431,17 +444,18 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
+                  <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
                 )}
         {!loading && (filteredItems.length === 0) && (
-                  <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
+                  <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
                 )}
-      {filteredItems.map(item => (
+  {filteredItems.map(item => (
                   <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
                     <td className="px-3 py-2">{item.year}</td>
                     <td className="px-3 py-2">{item.districtName}</td>
                     <td className="px-3 py-2">{item.type}</td>
                     <td className="px-3 py-2 text-right">{formatManYen(item.tradePrice)}</td>
+        <td className="px-3 py-2 text-right">{item.exclusiveUnitPrice ? formatManYenOneDecimal(item.exclusiveUnitPrice) : ''}</td>
                     <td className="px-3 py-2">{item.floorPlan}</td>
                     <td className="px-3 py-2">{[item.landArea, item.exclusiveArea].filter(Boolean).join(' / ')}</td>
                     <td className="px-3 py-2">{item.buildingYear}</td>

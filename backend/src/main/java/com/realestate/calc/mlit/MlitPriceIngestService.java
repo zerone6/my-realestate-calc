@@ -2,6 +2,8 @@ package com.realestate.calc.mlit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +13,7 @@ import java.util.Map;
 
 @Service
 public class MlitPriceIngestService {
+    private static final Logger log = LoggerFactory.getLogger(MlitPriceIngestService.class);
     private final JdbcTemplate jdbc;
     private final MlitApiClient client;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -68,9 +71,20 @@ public class MlitPriceIngestService {
     public IngestResult ingest(Map<String, String> params) {
         ensureTables();
         try {
+            if (log.isInfoEnabled()) {
+                log.info("MLIT fetch start: params={} ", params);
+            }
             String raw = client.getPricesRaw(params);
-            return ingestRaw(params, raw);
+            IngestResult r = ingestRaw(params, raw);
+            if (log.isInfoEnabled()) {
+                log.info("MLIT fetch done: queryId={}, status={}, inserted={}", r.getQueryId(), r.getStatus(),
+                        r.getRecordCount());
+            }
+            return r;
         } catch (Exception e) {
+            // Bubble up, but log once for traceability
+            org.slf4j.helpers.MessageFormatter.arrayFormat("MLIT fetch error for params={} err={}",
+                    new Object[] { params, e.getMessage() });
             throw new MlitIngestException("Failed to fetch/ingest MLIT prices", e);
         }
     }
@@ -95,6 +109,10 @@ public class MlitPriceIngestService {
             r.setQueryId(qid);
             r.setRecordCount(inserted);
             r.setStatus(status);
+            if (log.isInfoEnabled()) {
+                log.info("MLIT ingestRaw persisted: queryId={}, status={}, dataCountNode={}, inserted={} ", qid, status,
+                        (data != null && data.isArray()) ? data.size() : 0, inserted);
+            }
             return r;
         } catch (Exception e) {
             throw new MlitIngestException("Failed to parse/ingest MLIT price JSON", e);
@@ -134,6 +152,7 @@ public class MlitPriceIngestService {
                       floor_plan TEXT,
                       area_num NUMERIC,
                       unit_price_int BIGINT,
+                      exclusive_unit_price_int BIGINT,
                       land_shape TEXT,
                       frontage TEXT,
                       total_floor_area_num NUMERIC,
@@ -155,6 +174,11 @@ public class MlitPriceIngestService {
                 """);
         jdbc.execute("CREATE INDEX IF NOT EXISTS idx_mlit_price_record_query ON mlit_price_record(query_id);");
         jdbc.execute("CREATE INDEX IF NOT EXISTS idx_mlit_price_record_muni ON mlit_price_record(municipality_code);");
+        // Add column if running against an older DB
+        jdbc.execute("ALTER TABLE mlit_price_record ADD COLUMN IF NOT EXISTS exclusive_unit_price_int BIGINT;");
+        // Backfill missing exclusive_unit_price_int where possible (floor to integer)
+        jdbc.execute(
+                "UPDATE mlit_price_record SET exclusive_unit_price_int = CAST(FLOOR(trade_price_int / NULLIF(total_floor_area_num,0)) AS BIGINT) WHERE exclusive_unit_price_int IS NULL AND trade_price_int IS NOT NULL AND total_floor_area_num IS NOT NULL AND total_floor_area_num > 0;");
     }
 
     private long insertQueryLog(Map<String, String> params, String status, String raw, int count) {
@@ -191,11 +215,22 @@ public class MlitPriceIngestService {
         String sql = """
                     INSERT INTO mlit_price_record(
                       query_id, price_category, type, region, municipality_code, prefecture, municipality, district_name,
-                      trade_price_int, price_per_unit_int, floor_plan, area_num, unit_price_int, land_shape, frontage,
+                      trade_price_int, price_per_unit_int, floor_plan, area_num, unit_price_int, exclusive_unit_price_int, land_shape, frontage,
                       total_floor_area_num, building_year, structure, use, purpose, direction, classification,
                       breadth, city_planning, coverage_ratio, floor_area_ratio, period, renovation, remarks
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """;
+
+        java.lang.Long exclusiveUnit = null;
+        if (trade != null && totalFloor != null && totalFloor.signum() > 0) {
+            try {
+                java.math.BigDecimal v = new java.math.BigDecimal(trade).divide(totalFloor, 0,
+                        java.math.RoundingMode.DOWN);
+                exclusiveUnit = v.longValue();
+            } catch (Exception ignored) {
+                // ignore parse/arith errors; leave null
+            }
+        }
 
         return jdbc.update(sql,
                 qid,
@@ -211,6 +246,7 @@ public class MlitPriceIngestService {
                 text(n, "FloorPlan"),
                 area,
                 unitPrice,
+                exclusiveUnit,
                 text(n, "LandShape"),
                 text(n, "Frontage"),
                 totalFloor,
