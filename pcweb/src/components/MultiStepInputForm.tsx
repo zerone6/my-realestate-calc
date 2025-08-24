@@ -88,15 +88,40 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   const propertySection = (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-800">물건 정보</h3>
+      {/* 1행: 물건 이름, 전철역 */}
       <Row>
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">물건 이름</label>
           <input ref={nameRef} id="name" name="name" value={form.name} onChange={handleInputChange} placeholder="예: 신주쿠 아파트"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
         </div>
-  <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
-  <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (万円)','1000')} />
-  <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (万円)','0')} />
+        <div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="station" className="block text-sm font-medium text-gray-700 mb-1">전철역</label>
+            <InfoButton onClick={(e)=>handleLabelClick('station',e)} label="전철역" />
+          </div>
+          <input id="station" name="station" value={(form as any).station || ''} onChange={handleInputChange} placeholder="예: 네리마역"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+        </div>
+      </Row>
+
+      {/* 2행: 주소, 매입가 */}
+      <Row>
+        <div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+            <InfoButton onClick={(e)=>handleLabelClick('address',e)} label="주소" />
+          </div>
+          <input id="address" name="address" value={(form as any).address || ''} onChange={handleInputChange} placeholder="예: 도쿄도 네리마구 ..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+        </div>
+        <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
+      </Row>
+
+      {/* 3행: (기존 유지) 자기자금, 건물가격 */}
+      <Row>
+        <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (万円)','1000')} />
+        <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (万円)','0')} />
       </Row>
       <Row>
   <LabeledNumber {...numberFieldProps('grossYield','표면 이익율 (%)','6.0','0.1')} />

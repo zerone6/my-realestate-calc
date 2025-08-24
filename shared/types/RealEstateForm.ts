@@ -38,6 +38,8 @@ export interface RealEstateFormData {
 export interface FormInputData {
     // 첫 번째 블럭: 물건 정보
     name: string
+    station: string
+    address: string
     price: string
     grossYield: string
     structure: string
