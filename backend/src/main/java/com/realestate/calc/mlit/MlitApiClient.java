@@ -3,6 +3,8 @@ package com.realestate.calc.mlit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.realestate.calc.mlit.dto.MunicipalitiesResponse;
 import com.realestate.calc.mlit.dto.MunicipalityDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,7 @@ import java.util.zip.GZIPInputStream;
 
 @Component
 public class MlitApiClient {
+    private static final Logger log = LoggerFactory.getLogger(MlitApiClient.class);
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -84,6 +87,9 @@ public class MlitApiClient {
                     .append("");
         }
         String url = sb.toString();
+        if (log.isInfoEnabled()) {
+            log.info("MLIT HTTP GET {} (params={})", url, queryParams);
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Ocp-Apim-Subscription-Key", apiKey);
@@ -92,6 +98,10 @@ public class MlitApiClient {
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         ResponseEntity<byte[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
+        if (log.isInfoEnabled()) {
+            String enc = response.getHeaders().getFirst(HttpHeaders.CONTENT_ENCODING);
+            log.info("MLIT HTTP {} -> status={}, encoding={}", url, response.getStatusCode().value(), enc);
+        }
         byte[] bodyBytes = response.getBody();
         if (bodyBytes == null || bodyBytes.length == 0) {
             return "{}";

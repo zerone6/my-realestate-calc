@@ -199,6 +199,34 @@
 			],
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "Build Backend",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"-q",
+				"-DskipTests",
+				"package"
+			],
+			"problemMatcher": [
+				"$maven"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Backend",
+			"type": "shell",
+			"command": "mvn",
+			"args": [
+				"-q",
+				"-DskipTests",
+				"package"
+			],
+			"problemMatcher": [
+				"$maven"
+			],
+			"group": "build"
 		}
 	]
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.realestate.calc.mlit.MlitPriceIngestService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,10 +17,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/mlit/prices")
 public class MlitPriceSearchController {
+    private static final Logger log = LoggerFactory.getLogger(MlitPriceSearchController.class);
     private final JdbcTemplate jdbc;
     private final MlitPriceIngestService ingestService;
     private final ObjectMapper mapper = new ObjectMapper();
     private static final String JOIN_QUERY_LOG = " JOIN mlit_price_query_log q ON r.query_id=q.id";
+    private final java.util.concurrent.atomic.AtomicBoolean ensuredCols = new java.util.concurrent.atomic.AtomicBoolean(
+            false);
 
     public MlitPriceSearchController(JdbcTemplate jdbc, MlitPriceIngestService ingestService) {
         this.jdbc = jdbc;
@@ -49,6 +54,7 @@ public class MlitPriceSearchController {
             @RequestParam(required = false, name = "mode") String mode,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
+        ensureExtraColumns();
         int pageSize = normalizeSize(size);
         int offset = Math.max(page, 0) * pageSize;
 
@@ -73,8 +79,18 @@ public class MlitPriceSearchController {
         f.minExclusiveArea = minExclusiveArea;
         String m = (mode == null || mode.isBlank()) ? "SERVICE" : mode.trim().toUpperCase();
 
+        if (log.isInfoEnabled()) {
+            log.info(
+                    "MLIT /prices/list req mode={}, area={}, city={}, station={}, prefecture={}, municipality={}, district={}, years={}..{}, class={}, quarter={}, type={}, floorPlan={}, buildingYear={}, structure={}, minPrice={}, maxPrice={}, minLand={}, minEx={}, page={}, size={}",
+                    m, area, city, station, prefecture, municipality, districtName, startYear, endYear,
+                    priceClassification, quarter, type, floorPlan, buildingYear, structure,
+                    minTradePrice, maxTradePrice, minLandArea, minExclusiveArea, page, pageSize);
+        }
+
         // DB-only path
         if ("DB".equals(m)) {
+            if (log.isInfoEnabled())
+                log.info("MODE=DB: querying DB only, no MLIT ingest");
             WhereArgs where = buildWhere(f);
             int total = countTotal(where);
             List<Object[]> rows = fetchRows(where, pageSize, offset);
@@ -84,6 +100,8 @@ public class MlitPriceSearchController {
 
         // MLIT: always fetch from MLIT for the given scope/year(s), then read from DB
         if ("MLIT".equals(m)) {
+            if (log.isInfoEnabled())
+                log.info("MODE=MLIT: forced MLIT ingest for given scope");
             ingestForFilters(f);
             WhereArgs where = buildWhere(f);
             int total = countTotal(where);
@@ -92,21 +110,36 @@ public class MlitPriceSearchController {
             return ResponseEntity.ok(response);
         }
 
-        // SERVICE: DB-first; if empty, backfill from MLIT, then return with appropriate
-        // source
+        // SERVICE: DB-first; determine existence using scope-only filters (ignore fine
+        // filters)
+        WhereArgs scopeOnly = buildScopeWhere(f);
+        int scopeTotal = countTotal(scopeOnly);
         WhereArgs where = buildWhere(f);
         int total = countTotal(where);
-        if (total > 0) {
+        if (scopeTotal > 0) {
+            if (log.isInfoEnabled())
+                log.info("MODE=SERVICE: scope present in DB (scopeTotal={}) -> skip MLIT", scopeTotal);
             List<Object[]> rows = fetchRows(where, pageSize, offset);
             String response = buildListResponse(rows, total, page, pageSize, "SERVICE=DB");
             return ResponseEntity.ok(response);
         }
-        // No data in DB for this scope; attempt backfill via MLIT
+        // No data exists in DB for this scope/year/class -> backfill via MLIT
+        if (log.isInfoEnabled()) {
+            log.info(
+                    "MODE=SERVICE: scope empty -> trigger MLIT ingest for area={}, city={}, station={}, years={}..{}, class={}",
+                    f.area, f.city, f.station, f.startYear, f.endYear, f.priceClassification);
+        }
         ingestForFilters(f);
+        // After ingest, re-evaluate totals
+        scopeOnly = buildScopeWhere(f);
+        scopeTotal = countTotal(scopeOnly);
         where = buildWhere(f);
         total = countTotal(where);
+        if (log.isInfoEnabled())
+            log.info("MODE=SERVICE: post-ingest counts scopeTotal={}, total={}", scopeTotal, total);
         List<Object[]> rows = fetchRows(where, pageSize, offset);
-        String response = buildListResponse(rows, total, page, pageSize, "SERVICE=MLIT");
+        String response = buildListResponse(rows, total, page, pageSize,
+                scopeTotal > 0 ? "SERVICE=DB" : "SERVICE=MLIT");
         return ResponseEntity.ok(response);
     }
 
@@ -134,7 +167,7 @@ public class MlitPriceSearchController {
                 "r.prefecture, r.municipality, r.district_name, r.period, " +
                 // additional columns for new table (structure included; drop
                 // coverage/floor_area ratios for list)
-                "r.type, r.trade_price_int, r.floor_plan, r.area_num, r.total_floor_area_num, r.building_year, r.structure "
+                "r.type, r.trade_price_int, r.floor_plan, r.area_num, r.total_floor_area_num, r.building_year, r.structure, r.exclusive_unit_price_int "
                 +
                 "FROM mlit_price_record r" + JOIN_QUERY_LOG + built.where +
                 " ORDER BY q.year::int DESC NULLS LAST, " +
@@ -155,7 +188,7 @@ public class MlitPriceSearchController {
                 list.add(new Object[] { rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
                         rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9),
                         rs.getString(10), rs.getObject(11), rs.getString(12), rs.getObject(13), rs.getObject(14),
-                        rs.getString(15), rs.getString(16) });
+                        rs.getString(15), rs.getString(16), rs.getObject(17) });
             }
             return list;
         });
@@ -196,6 +229,7 @@ public class MlitPriceSearchController {
             putNumAsString(n, "exclusiveArea", r[13]);
             n.put("buildingYear", (String) r[14]);
             n.put("structure", (String) r[15]);
+            putNumAsString(n, "exclusiveUnitPrice", r[16]);
             items.add(n);
         }
         root.set("items", items);
@@ -261,6 +295,11 @@ public class MlitPriceSearchController {
             putIfNotBlank(params, "station", f.station);
             params.put("year", String.valueOf(year));
             params.put("priceClassification", pc);
+            if (log.isInfoEnabled()) {
+                log.info("MLIT ingest call: params area={}, city={}, station={}, year={}, class={}",
+                        params.get("area"), params.get("city"), params.get("station"), params.get("year"),
+                        params.get("priceClassification"));
+            }
             try {
                 ingestService.ingest(params);
             } catch (Exception ignored) {
@@ -315,6 +354,43 @@ public class MlitPriceSearchController {
         addClassificationFilters(where, args, f);
         addExtraFilters(where, args, f);
         return new WhereArgs(where, args);
+    }
+
+    // Scope-only where: ignore districtName and list-level extra filters so we
+    // don't trigger MLIT
+    // backfill just because a fine-grained filter returns 0 rows.
+    private static WhereArgs buildScopeWhere(Filters f) {
+        StringBuilder where = new StringBuilder(" WHERE 1=1");
+        List<Object> args = new ArrayList<>();
+        addScopeLocationFilters(where, args, f);
+        addYearFilters(where, args, f);
+        addClassificationFilters(where, args, f);
+        return new WhereArgs(where, args);
+    }
+
+    private static void addScopeLocationFilters(StringBuilder where, List<Object> args, Filters f) {
+        if (notBlank(f.city)) {
+            where.append(" AND r.municipality_code = ?");
+            args.add(f.city);
+        }
+        if (notBlank(f.area)) {
+            where.append(" AND (q.area = ? OR r.municipality_code LIKE ?)");
+            args.add(f.area);
+            args.add(f.area + "%");
+        }
+        if (notBlank(f.station)) {
+            where.append(" AND q.station = ?");
+            args.add(f.station);
+        }
+        if (notBlank(f.prefecture)) {
+            where.append(" AND r.prefecture = ?");
+            args.add(f.prefecture);
+        }
+        if (notBlank(f.municipality)) {
+            where.append(" AND r.municipality = ?");
+            args.add(f.municipality);
+        }
+        // Intentionally ignore districtName for scope existence check.
     }
 
     private static void addLocationFilters(StringBuilder where, List<Object> args, Filters f) {
@@ -408,6 +484,7 @@ public class MlitPriceSearchController {
 
     @GetMapping(value = "/detail/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> detail(@PathVariable("id") long id) {
+        ensureExtraColumns();
         String sql = "SELECT r.price_category, r.type, r.region, r.municipality_code, r.prefecture, r.municipality, r.district_name, "
                 +
                 "r.trade_price_int, r.price_per_unit_int, r.floor_plan, r.area_num, r.unit_price_int, r.land_shape, r.frontage, "
@@ -453,6 +530,7 @@ public class MlitPriceSearchController {
         n.put("FloorPlan", (String) row[9]);
         putNumAsString(n, "Area", row[10]);
         putNumAsString(n, "UnitPrice", row[11]);
+        // exclusiveUnitPrice available in list; detail keeps original fields
         n.put("LandShape", (String) row[12]);
         n.put("Frontage", (String) row[13]);
         putNumAsString(n, "TotalFloorArea", row[14]);
@@ -471,6 +549,22 @@ public class MlitPriceSearchController {
         n.put("Remarks", (String) row[27]);
         root.set("record", n);
         return ResponseEntity.ok(root.toString());
+    }
+
+    private void ensureExtraColumns() {
+        if (ensuredCols.get())
+            return;
+        try {
+            jdbc.execute("ALTER TABLE mlit_price_record ADD COLUMN IF NOT EXISTS exclusive_unit_price_int BIGINT;");
+            jdbc.execute(
+                    "UPDATE mlit_price_record SET exclusive_unit_price_int = CAST(FLOOR(trade_price_int / NULLIF(total_floor_area_num,0)) AS BIGINT) "
+                            +
+                            "WHERE exclusive_unit_price_int IS NULL AND trade_price_int IS NOT NULL AND total_floor_area_num IS NOT NULL AND total_floor_area_num > 0;");
+        } catch (Exception ignored) {
+            // best-effort migration
+        } finally {
+            ensuredCols.set(true);
+        }
     }
 
     private static boolean notBlank(String s) {

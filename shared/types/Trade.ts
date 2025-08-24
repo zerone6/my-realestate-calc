@@ -10,6 +10,7 @@ export type ListItem = {
   // new fields for expanded table
   type?: string
   tradePrice?: string | number
+  exclusiveUnitPrice?: string | number
   floorPlan?: string
   landArea?: string | number
   exclusiveArea?: string | number
