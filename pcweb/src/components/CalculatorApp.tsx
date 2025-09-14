@@ -8,6 +8,8 @@ import { calculateRealEstate, loadData, saveData } from '../../../shared/api/rea
 import { useToast } from './toast/ToastContext'
 import { t } from '../../../shared/i18n'
 import { convertFormToRequest } from '../../../shared/utils/formUtils'
+import { normalizeForm } from '../../../shared/utils/formNormalize'
+import { getStoredUserId } from '../../../shared/utils/authState'
 
 // Auxiliary placeholder tabs moved to module scope to satisfy lint rules
 function RouteInfoTab() {
@@ -91,12 +93,18 @@ function CalculatorApp() {
       if (detail.loggedIn && detail.userId) {
         setUserId(detail.userId)
         try {
+          console.debug('[authChange] loading data for user', detail.userId)
           const data = await loadData(detail.userId) as any
-          setSavedItems(data)
-        } catch (err) {
+          console.debug('[authChange] loadData returned', Array.isArray(data) ? data.length + ' items' : data)
+          if (!Array.isArray(data)) {
+            console.warn('[authChange] unexpected payload type from loadData', data)
+          }
+          setSavedItems(Array.isArray(data) ? data : [])
+        } catch (err: any) {
           console.error('Failed to load user data:', err)
           setSavedItems([])
-          push('error', t('toast.load.fail'))
+          const msg = err?.message || 'load error'
+          push('error', t('toast.load.fail') + ' (' + msg + ')')
         }
         // 화면 초기화
         setActiveForm(null)
@@ -129,6 +137,25 @@ function CalculatorApp() {
     return () => window.removeEventListener('authChange' as any, handleAuthChange as EventListener)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, savedItems])
+
+  // 최초 마운트 시 (authChange 이벤트 오기 전이라도) localStorage에 사용자 있으면 즉시 로드
+  useEffect(() => {
+    if (userId) return // 이미 세션 처리됨
+    const stored = getStoredUserId()
+    if (!stored) return
+    const preload = async () => {
+      try {
+        console.debug('[mount] detected stored userId -> preloading data', stored)
+        const data = await loadData(stored) as any
+        setUserId(stored)
+        setSavedItems(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.warn('[mount] preload failed', e)
+      }
+    }
+    preload()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // Receive prefill from MultiStepInputForm when district1 selected
   useEffect(() => {
     const h = (e: any) => {
@@ -296,10 +323,19 @@ function CalculatorApp() {
   }
 
   const handleLoad = (form: FormInputData) => {
-    setActiveForm(form)
-    setActiveTab(0) // 부동산을 선택하면 첫 번째 탭(수익 계산)으로 이동
-    setShowResult(false) // 새로운 폼 로드 시 결과 숨김
-    handleCalculate(form)
+    try {
+      console.debug('[handleLoad] clicked item form raw:', form)
+      if (typeof form !== 'object' || !form) throw new Error('불러온 데이터가 객체가 아닙니다')
+      const normalized = normalizeForm(form)
+      console.debug('[handleLoad] normalized form:', normalized)
+      setActiveForm(normalized)
+      setActiveTab(0)
+      setShowResult(false)
+      handleCalculate(normalized)
+    } catch (e) {
+      console.error('[handleLoad] error', e)
+      push('error', '저장된 항목 로드 중 오류: ' + (e as any)?.message)
+    }
   }
 
   const handleDelete = async (name: string) => {
@@ -381,7 +417,10 @@ function CalculatorApp() {
       <aside className="w-full lg:w-64 bg-white shadow-md lg:h-screen overflow-y-auto">
         {/* 고정 제목 */}
         <div className="hidden lg:block px-4 pt-3 pb-2">
-          <div className="text-base font-bold text-gray-800 leading-none">My Real Estate</div>
+          <a href="/" className="group flex items-center gap-2 rounded-md px-2 py-1.5 bg-gradient-to-r from-blue-50 to-white border border-blue-100 hover:from-blue-100 hover:to-white hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" title="홈으로 이동" aria-label="홈으로 이동">
+            <span className="text-blue-600 text-lg group-hover:scale-110 transition-transform" aria-hidden="true">🏠</span>
+            <span className="text-sm font-extrabold tracking-wide text-gray-800 group-hover:text-blue-700">My Real Estate</span>
+          </a>
         </div>
         {/* 보이지 않는 구분선 역할 (테이블/그리드 대체) */}
         <div className="hidden lg:block h-2" aria-hidden="true" />

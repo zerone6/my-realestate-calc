@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fieldDescriptions } from '../../../shared/data/fieldDescriptions'
 import { FormInputData } from '../../../shared/types/RealEstateForm'
 import { createDefaultFormData, calculateTotalPurchaseCost } from '../../../shared/utils/formUtils'
+import { normalizeForm } from '../../../shared/utils/formNormalize'
 import { createInputChangeHandler } from '../hooks/useFormHandlers'
 import DescriptionTooltip from './DescriptionTooltip'
 import { PREF_NAMES } from '../../../shared/data/tradeLabels'
@@ -33,7 +34,7 @@ const LabeledNumber = (p: Readonly<{id:string; label:string; placeholder?:string
 )
 
 export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultForm, onCalculateComplete }: Readonly<FormProps>){
-  const [form,setForm]=useState<FormInputData>(()=>{try{const s=localStorage.getItem('realEstateForm'); if(s){const p=JSON.parse(s); if(p && p.name!==undefined) return p;} }catch{} return createDefaultFormData()})
+  const [form,setForm]=useState<FormInputData>(()=>{try{const s=localStorage.getItem('realEstateForm'); if(s){const p=JSON.parse(s); if(p && p.name!==undefined) return normalizeForm(p);} }catch{} return createDefaultFormData()})
   const [currentStep,setCurrentStep]=useState(()=>{try{const s=localStorage.getItem('realEstateFormStep'); if(s){const n=parseInt(s,10); if(n>=0&&n<=3) return n;}}catch{} return 0})
   const nameRef=useRef<HTMLInputElement>(null)
   const [tooltipVisible,setTooltipVisible]=useState(false)
@@ -75,7 +76,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   // Persist
   useEffect(()=>{ try{localStorage.setItem('realEstateForm',JSON.stringify(form))}catch{} },[form])
   useEffect(()=>{ try{localStorage.setItem('realEstateFormStep',String(currentStep))}catch{} },[currentStep])
-  useEffect(()=>{ if(defaultForm){ setForm(defaultForm); try{localStorage.setItem('realEstateForm',JSON.stringify(defaultForm))}catch{} } },[defaultForm])
+  useEffect(()=>{ if(defaultForm){ const norm = normalizeForm(defaultForm); setForm(norm); try{localStorage.setItem('realEstateForm',JSON.stringify(norm))}catch{} } },[defaultForm])
 
   // Load municipalities for dropdowns
   useEffect(() => {
@@ -121,7 +122,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   }, [form.cityId])
 
   const handleInputChange=createInputChangeHandler(form,setForm)
-  const autoSave=()=>{ if(form.name.trim()) onAutoSave(form) }
+  const autoSave=()=>{ if(typeof form.name==='string' && form.name.trim()) onAutoSave(form) }
   const handleCalculate=()=>{ autoSave(); onCalculate(form); onCalculateComplete?.() }
   const handleReset=()=>{ if(confirm('초기화하시겠습니까?')) { const d=createDefaultFormData(); setForm(d); setCurrentStep(0); try{localStorage.removeItem('realEstateForm');localStorage.removeItem('realEstateFormStep')}catch{} } }
   const nextStep=()=>{ if(currentStep<steps.length-1){ autoSave(); setCurrentStep(c=>c+1) } }
