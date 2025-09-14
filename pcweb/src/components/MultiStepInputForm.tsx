@@ -149,8 +149,27 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
             <label htmlFor="station" className="block text-sm font-medium text-gray-700 mb-1">전철역</label>
             <InfoButton onClick={(e)=>handleLabelClick('station',e)} label="전철역" />
           </div>
-          <input id="station" name="station" value={(form as any).station || ''} onChange={handleInputChange} placeholder="예: 네리마역"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+          <div className="flex items-center space-x-2">
+            <input id="station" name="station" value={(form as any).station || ''} onChange={handleInputChange} placeholder="예: 네리마역"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+            <select
+              id="walkMinutesToStation"
+              name="walkMinutesToStation"
+              value={(form as any).walkMinutesToStation !== undefined ? String((form as any).walkMinutesToStation) : ''}
+              onChange={(e)=>{
+                const v = e.target.value
+                const num = v === '' ? undefined : parseInt(v,10)
+                setForm(f=> ({ ...f, walkMinutesToStation: num }))
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              aria-label="역에서 도보 분"
+            >
+              <option value="">도보 분</option>
+              {Array.from({ length: 20 }, (_, i) => i + 1).map(m => (
+                <option key={m} value={m}>{m}분</option>
+              ))}
+            </select>
+          </div>
         </div>
       </Row>
 
@@ -347,12 +366,17 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
             </button>
           )})}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
           <button
             type="button"
             onClick={()=> window.dispatchEvent(new CustomEvent('exportPdf'))}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-sm font-medium shadow"
           >PDF로 저장</button>
+          <button
+            type="button"
+            onClick={()=>{ try { window.dispatchEvent(new CustomEvent('explicitFormSave', { detail: { form } })) } catch {} }}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium shadow"
+          >물건 정보 저장</button>
         </div>
       </div>
 

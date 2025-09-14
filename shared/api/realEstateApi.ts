@@ -49,6 +49,10 @@ async function apiRequest<T>(
         const response = await fetch(url, config)
 
         if (!response.ok) {
+            if (response.status === 401) {
+                // 401이면 전역 이벤트 발생 -> UI가 로그인 모달 열기
+                window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { endpoint } }))
+            }
             throw new ApiError(
                 `API request failed: ${response.status} ${response.statusText}`,
                 response.status,
@@ -56,6 +60,12 @@ async function apiRequest<T>(
             )
         }
 
+        // No content
+        if (response.status === 204) return undefined as unknown as T
+        const contentType = response.headers.get('Content-Type') || ''
+        if (!contentType.includes('application/json')) {
+            return undefined as unknown as T
+        }
         const data = await response.json()
         return data
     } catch (error) {
@@ -101,7 +111,7 @@ export function getApiBaseUrl(): string {
  * 사용자 데이터 저장
  */
 export async function saveData(userId: string, data: { name: string; form: FormInputData }[]): Promise<void> {
-    return apiRequest<void>(`/storage/save?userId=${userId}`, {
+    return apiRequest<void>(`/storage/save?userId=${encodeURIComponent(userId)}`, {
         method: 'POST',
         body: JSON.stringify(data),
     });
@@ -111,7 +121,7 @@ export async function saveData(userId: string, data: { name: string; form: FormI
  * 사용자 데이터 불러오기
  */
 export async function loadData(userId: string): Promise<{ name: string; form: FormInputData }[]> {
-    return apiRequest<{ name: string; form: FormInputData }[]>(`/storage/load?userId=${userId}`);
+    return apiRequest<{ name: string; form: FormInputData }[]>(`/storage/load?userId=${encodeURIComponent(userId)}`);
 }
 
 /**

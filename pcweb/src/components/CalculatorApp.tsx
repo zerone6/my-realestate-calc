@@ -5,6 +5,8 @@ import { ResultCard } from './ResultCard'
 import { CalculationResult, FormInputData } from '../../../shared/types/RealEstateForm'
 import TradeSearchPage from './TradeSearchPage'
 import { calculateRealEstate, loadData, saveData } from '../../../shared/api/realEstateApi'
+import { useToast } from './toast/ToastContext'
+import { t } from '../../../shared/i18n'
 import { convertFormToRequest } from '../../../shared/utils/formUtils'
 
 // Auxiliary placeholder tabs moved to module scope to satisfy lint rules
@@ -54,8 +56,12 @@ function MarketTrendTab() {
 }
 
 function CalculatorApp() {
+  const { push } = useToast()
   const [result, setResult] = useState<CalculationResult | null>(null)
-  const [savedItems, setSavedItems] = useState<{ name: string; form: FormInputData }[]>([])
+  type SavedItem = { name: string; form: FormInputData; updatedAt?: string }
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([])
+  const [pendingSave, setPendingSave] = useState<{ items: { name: string; form: FormInputData }[] } | null>(null)
+  const [loginPromptVisible, setLoginPromptVisible] = useState(false)
   const [activeForm, setActiveForm] = useState<FormInputData | null>(null)
   const [calculatedForm, setCalculatedForm] = useState<FormInputData | null>(null) // 계산에 사용된 폼 데이터 추적
   const [loading, setLoading] = useState(false)
@@ -85,11 +91,12 @@ function CalculatorApp() {
       if (detail.loggedIn && detail.userId) {
         setUserId(detail.userId)
         try {
-          const data = await loadData(detail.userId)
+          const data = await loadData(detail.userId) as any
           setSavedItems(data)
         } catch (err) {
           console.error('Failed to load user data:', err)
           setSavedItems([])
+          push('error', t('toast.load.fail'))
         }
         // 화면 초기화
         setActiveForm(null)
@@ -122,7 +129,6 @@ function CalculatorApp() {
     return () => window.removeEventListener('authChange' as any, handleAuthChange as EventListener)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, savedItems])
-
   // Receive prefill from MultiStepInputForm when district1 selected
   useEffect(() => {
     const h = (e: any) => {
@@ -132,6 +138,79 @@ function CalculatorApp() {
     window.addEventListener('tradeSearchPrefill' as any, h as EventListener)
     return () => window.removeEventListener('tradeSearchPrefill' as any, h as EventListener)
   }, [])
+
+  // Manual explicit save button event (guarded by auth)
+  useEffect(() => {
+    const buildNextItems = (form: FormInputData, prev: SavedItem[]): SavedItem[] => {
+      const nowIso = new Date().toISOString()
+      const idx = prev.findIndex(p => p.name === form.name)
+      if (idx >= 0) return prev.map(p => p.name === form.name ? { name: form.name, form, updatedAt: nowIso } : p)
+      return [...prev, { name: form.name, form, updatedAt: nowIso }]
+    }
+
+    const persist = (next: SavedItem[]) => {
+      if (!userId) {
+        setPendingSave({ items: next })
+        window.dispatchEvent(new CustomEvent('auth:login-required-ui'))
+        setLoginPromptVisible(true)
+  push('info', t('toast.login.required'))
+    window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'login.required.blocked-save' } }))
+        return
+      }
+      saveData(userId, next)
+        .then(async () => {
+          push('success', t('toast.save.success'))
+          window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'save.explicit', count: next.length } }))
+          try { const fresh = await loadData(userId); setSavedItems(fresh as any) } catch {}
+        })
+        .catch(err => { console.warn('Explicit save failed', err); push('error', t('toast.save.fail')); window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'save.explicit.fail' } })) })
+    }
+
+    const onExplicit = (e: any) => {
+      const form = e?.detail?.form as FormInputData | undefined
+      if (!form?.name) return
+      setSavedItems(prev => {
+        const next = buildNextItems(form, prev)
+        persist(next)
+        return next
+      })
+      setActiveForm(form)
+    }
+    window.addEventListener('explicitFormSave' as any, onExplicit as EventListener)
+    return () => window.removeEventListener('explicitFormSave' as any, onExplicit as EventListener)
+  }, [userId])
+
+  // Backend 401 global event → 표시 & pending retry
+  useEffect(() => {
+    const onLoginRequired = () => {
+      if (!loginPromptVisible) setLoginPromptVisible(true)
+  push('info', t('toast.login.continue'))
+      window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'login.required.event' } }))
+    }
+    window.addEventListener('auth:login-required', onLoginRequired as any)
+    return () => window.removeEventListener('auth:login-required', onLoginRequired as any)
+  }, [loginPromptVisible])
+
+  // 로그인 성공 시 pending save 재시도
+  useEffect(() => {
+    if (!userId || !pendingSave) return
+    const retry = async () => {
+      try {
+    await saveData(userId, pendingSave.items)
+    push('success', t('toast.login.retry.success'))
+    window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'save.retry.success', count: pendingSave.items.length } }))
+    try { const fresh = await loadData(userId); setSavedItems(fresh as any) } catch {}
+      } catch (err) {
+        console.warn('Retry save after login failed', err)
+    push('error', t('toast.login.retry.fail'))
+    window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'save.retry.fail' } }))
+      } finally {
+        setPendingSave(null)
+        setLoginPromptVisible(false)
+      }
+    }
+    retry()
+  }, [userId, pendingSave])
 
   const handleCalculate = async (form: FormInputData) => {
     setLoading(true)
@@ -168,36 +247,36 @@ function CalculatorApp() {
 
     setSavedItems((prev) => {
       const existingIndex = prev.findIndex(item => item.name === form.name)
-      let updated
-
+      const nowIso = new Date().toISOString()
       if (existingIndex !== -1) {
-        // 같은 이름이 있으면 해당 항목을 덮어쓰기
-        updated = [...prev]
-        updated[existingIndex] = { name: form.name, form }
-      } else {
-        // 없으면 새 항목으로 추가
-        updated = [...prev, { name: form.name, form }]
+        const clone = [...prev]
+        clone[existingIndex] = { name: form.name, form, updatedAt: nowIso }
+        return clone
       }
-
-      return updated
+      return [...prev, { name: form.name, form, updatedAt: nowIso }]
     })
 
     // 백엔드에도 즉시 저장 (로그인 사용자에 한해)
+    // 로그인 안된 상태에서는 auto-save 서버 호출 생략 (모달 스팸 방지)
+    if (!userId) return
     try {
-      if (userId) {
-        const next = (() => {
-          const existingIndex = savedItems.findIndex(item => item.name === form.name)
-          if (existingIndex !== -1) {
-            const clone = [...savedItems]
-            clone[existingIndex] = { name: form.name, form }
-            return clone
-          }
-          return [...savedItems, { name: form.name, form }]
-        })()
-        await saveData(userId, next)
-      }
+      const next = (() => {
+        const existingIndex = savedItems.findIndex(item => item.name === form.name)
+        const nowIso = new Date().toISOString()
+        if (existingIndex !== -1) {
+          const clone = [...savedItems]
+          clone[existingIndex] = { name: form.name, form, updatedAt: nowIso }
+          return clone
+        }
+        return [...savedItems, { name: form.name, form, updatedAt: nowIso }]
+      })()
+    await saveData(userId, next)
+    window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'save.autosave', name: form.name } }))
+    try { const fresh = await loadData(userId); setSavedItems(fresh as any) } catch {}
     } catch (err) {
       console.warn('Auto save failed:', err)
+    push('warning', t('toast.autosave.fail'))
+    window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'save.autosave.fail', name: form.name } }))
     }
   }
 
@@ -226,10 +305,11 @@ function CalculatorApp() {
   const handleDelete = async (name: string) => {
     if (!confirm(`'${name}' 항목을 삭제하시겠습니까?`)) return
 
-    const updated = savedItems.filter(item => item.name !== name)
+  const updated = savedItems.filter(item => item.name !== name)
     setSavedItems(updated)
     // 백엔드에도 반영
-    try { if (userId) await saveData(userId, updated) } catch (err) { console.warn('Delete save failed:', err) }
+    try { if (userId) { await saveData(userId, updated); push('success', t('toast.delete.success')); window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'delete.item', name } })); try { const fresh = await loadData(userId); setSavedItems(fresh as any) } catch {} } }
+    catch (err) { console.warn('Delete save failed:', err); push('error', t('toast.delete.fail')); window.dispatchEvent(new CustomEvent('analytics', { detail: { action: 'delete.item.fail', name } })) }
   }
 
   // 임시 탭 컴포넌트들
@@ -339,7 +419,10 @@ function CalculatorApp() {
                           setIsMobileSidebarOpen(false) // 선택 후 자동으로 접기
                         }}
                       >
-                        {item.name}
+                        <div className="flex items-center justify-between">
+                          <span>{item.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">{item.form?.walkMinutesToStation ? `${item.form.walkMinutesToStation}분` : ''}</span>
+                        </div>
                       </button>
                       <button
                         onClick={() => handleDelete(item.name)}
@@ -369,7 +452,21 @@ function CalculatorApp() {
                     className="flex-1 text-left cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600"
                     onClick={() => handleLoad(item.form)}
                   >
-                    {item.name}
+                    <div className="flex flex-col">
+                      <div className="flex items-center justify-between">
+                        <span>{item.name}</span>
+                        <span className="text-xs text-gray-500 ml-2">{item.form?.walkMinutesToStation ? `${item.form.walkMinutesToStation}분` : ''}</span>
+                      </div>
+                      {item.updatedAt && (
+                        <span className="text-[10px] text-gray-400 mt-0.5">
+                          {(() => {
+                            const diffMin = Math.floor((Date.now() - new Date(item.updatedAt).getTime()) / 60000)
+                            const icon = diffMin >= 10 ? '⏲️' : ''
+                            return `${icon} ${diffMin}분 전 저장`
+                          })()}
+                        </span>
+                      )}
+                    </div>
                   </button>
                   <button
                     onClick={() => handleDelete(item.name)}

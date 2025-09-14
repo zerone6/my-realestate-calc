@@ -281,6 +281,43 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
           </div>
         </div>
 
+        {/* 역/도보시간 라인 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <label htmlFor="station" className="block text-sm font-medium text-gray-700 mb-1">最寄り駅</label>
+              <InfoButton onClick={(e) => handleLabelClick('station', e)} label="역" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="station"
+                name="station"
+                value={form.station}
+                onChange={handleInputChange}
+                placeholder="역 이름"
+                className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors h-12"
+              />
+              <select
+                id="walkMinutesToStation"
+                name="walkMinutesToStation"
+                value={form.walkMinutesToStation !== undefined ? String(form.walkMinutesToStation) : ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  const num = v === '' ? undefined : parseInt(v, 10)
+                  setForm(prev => ({ ...prev, walkMinutesToStation: num }))
+                }}
+                className="border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-12"
+                aria-label="역에서 도보 분"
+              >
+                <option value="">도보 분</option>
+                {Array.from({ length: 20 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{m}분</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
             <div className="flex items-center justify-between">
