@@ -121,7 +121,15 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
 
   useEffect(() => {
     // reset city when pref changes if current city doesn't match
-    setCityId(prev => (prev && pref && prev.startsWith(pref) ? prev : ''))
+    setCityId(prev => {
+      if (typeof prev !== 'string') return ''
+      if (!pref) return ''
+      try {
+        return prev.startsWith(pref) ? prev : ''
+      } catch {
+        return ''
+      }
+    })
   }, [pref])
 
   const fetchList = async (opts?: { page?: number; size?: number }) => {
