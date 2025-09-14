@@ -21,4 +21,6 @@ public class FormInputData {
     public String maintenanceCost;
     public String loanInterest;
     public String otherExpenses;
+    // 역에서 도보 시간(분) - optional
+    public Integer walkMinutesToStation;
 }

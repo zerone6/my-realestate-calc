@@ -88,6 +88,8 @@ export function createDefaultFormData(): FormInputData {
         ownCapital: '0', // 자기자금은 자동 계산될 예정
         buildingPrice: '0', // 매입가격 입력 시 자동 계산
         occupancyRate: '100', // 입주율 100%로 수정
+    // 도보시간(역까지) - 분 (옵션)
+    walkMinutesToStation: undefined,
 
         // 두 번째 블럭: 대출 정보
         rate: '2.0',

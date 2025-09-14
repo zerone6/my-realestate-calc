@@ -1,6 +1,8 @@
 package com.realestate.calc.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 public class MlitDirectoryController {
     private final JdbcTemplate jdbcTemplate;
     private static final String COL_PREF_CODE = "prefecture_code";
+    private static final Logger log = LoggerFactory.getLogger(MlitDirectoryController.class);
 
     public MlitDirectoryController(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -47,8 +50,10 @@ public class MlitDirectoryController {
                         "id", rs.getString("id"),
                         "name", rs.getString("name"),
                         COL_PREF_CODE, rs.getString(COL_PREF_CODE)));
+        int rowCount = rows.size();
         Map<String, List<Map<String, String>>> grouped = rows.stream()
                 .collect(Collectors.groupingBy(r -> r.get(COL_PREF_CODE)));
+        int groupedCount = grouped.size();
         Map<String, Object> body = new HashMap<>();
         body.put("data", grouped.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
@@ -56,6 +61,7 @@ public class MlitDirectoryController {
                         .map(r -> Map.of("id", r.get("id"), "name", r.get("name")))
                         .toList())));
         body.put("prefectureCount", grouped.size());
+        log.info("/api/mlit/municipalities-grouped rows={}, prefectures={}", rowCount, groupedCount);
         return ResponseEntity.ok(body);
     }
 }
