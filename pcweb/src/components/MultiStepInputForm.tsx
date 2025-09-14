@@ -135,6 +135,9 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
     id,label,placeholder,step,value:(form as any)[id], onChange:handleInputChange as any, onInfo:(e:React.MouseEvent)=>handleLabelClick(id,e)
   })
 
+  const toNumber = (v:string|undefined)=>{ const n=parseFloat(v||''); return isFinite(n)?n:0 }
+  // formatUnit no longer needed (inline calc for readonly field)
+
   const propertySection = (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-800">물건 정보</h3>
@@ -196,7 +199,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
             onChange={(e)=>{
               handleInputChange(e)
               // also prefill trade search even if no district1
-              try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: (e.target as HTMLSelectElement).value } })) }catch{}
+              try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: (e.target as HTMLSelectElement).value, name: form.name, landArea: (form as any).landArea, buildingArea: form.buildingArea, price: form.price } })) }catch{}
             }} disabled={!form.pref}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
             <option value="">-- 선택 --</option>
@@ -208,7 +211,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         <div>
           <label htmlFor="district1" className="block text-sm font-medium text-gray-700 mb-1">세부1</label>
           <select id="district1" name="district1" value={(form as any).district1 || ''}
-            onChange={(e)=>{ handleInputChange(e); try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: form.cityId, district1: e.target.value } })) }catch{}}}
+            onChange={(e)=>{ handleInputChange(e); try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: form.cityId, district1: e.target.value, name: form.name, landArea: (form as any).landArea, buildingArea: form.buildingArea, price: form.price } })) }catch{}}}
             disabled={!form.cityId || districtOptions.length===0}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
             {districtOptions.length>0 ? (
@@ -233,10 +236,26 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
 
       {/* 구분선 및 가격/자기자금/건물가격을 아래 블럭으로 이동 */}
       <div className="border-t my-4" />
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
-        <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (万円)','1000')} />
-        <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (万円)','0')} />
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
+        <LabeledNumber {...numberFieldProps('price','매입가 (만원)','6000')} />
+        <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (만원)','1000')} />
+        <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (만원)','0')} />
+        <div>
+          <div className="flex items-center justify-between" aria-label="평단가 (만원/평)">
+            <span className="block text-sm font-medium text-gray-700 mb-1">평단가 (만원/평)</span>
+            <InfoButton onClick={(e)=>handleLabelClick('pricePerPyeong',e)} label="평단가" />
+          </div>
+          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+            {(() => {
+              const land = toNumber((form as any).landArea)
+              const price = toNumber(form.price)
+              if (land <= 0 || price <= 0) return '-'
+              const p = land / 3.3058
+              if (p <= 0) return '-'
+              return (price / p).toFixed(1)
+            })()}
+          </div>
+        </div>
       </div>
 
   {/* 가격 행 하단부터 기존 섹션 유지 */}
@@ -249,7 +268,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         </div>
   <LabeledNumber {...numberFieldProps('occupancyRate','입주율 (%)','100','0.1')} />
       </Row>
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
         <div>
           <div className="flex items-center justify-between">
             <label htmlFor="structure" className="block text-sm font-medium text-gray-700 mb-1">구조</label>
@@ -260,6 +279,7 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
           </select>
         </div>
   <LabeledNumber {...numberFieldProps('buildingAge','내용연수 (년)','22')} />
+  <LabeledNumber {...numberFieldProps('landArea','토지 면적 (㎡)','0')} />
   <LabeledNumber {...numberFieldProps('buildingArea','건물 면적 (㎡)','100')} />
       </div>
     </div>

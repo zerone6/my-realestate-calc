@@ -69,6 +69,15 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
   // 연간 수익 계산 (만원 단위로 입력받아서 円으로 변환)
   const annualIncome = (parseFloat(form.rent) || 0) * 10000 * 12;
 
+  const calcPricePerPyeong = () => {
+    const land = parseFloat((form as any).landArea || '')
+    const price = parseFloat(form.price || '')
+    if(!land || !price) return '-'
+    const p = land/3.3058
+    if(p<=0) return '-'
+    return (price / p).toFixed(1)
+  }
+
   // 입주율 반영 수익 계산 (미사용)
   // const occupancyAdjustedIncome = annualIncome * (parseFloat(form.occupancyRate) / 100);
 
@@ -117,7 +126,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
       } else if (name === 'grossYield') {
         const grossYield = parseFloat(value) || 0;
         if (totalCost > 0) {
-          // totalCost(万円) * grossYield(%) / 100 / 12 = rent(万円)
+          // totalCost(만원) * grossYield(%) / 100 / 12 = rent(만원)
           const newRent = (totalCost * grossYield / 100 / 12).toFixed(1);
           newForm = { ...newForm, rent: newRent };
         }
@@ -412,6 +421,25 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
                 ))}
             </select>
           </div>
+          {/* Land Area inserted */}
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <label htmlFor="landArea" className="block text-sm font-medium text-gray-700 mb-1">토지면적</label>
+              <InfoButton onClick={(e) => handleLabelClick('landArea', e)} label="토지면적" />
+            </div>
+            <input
+              id="landArea"
+              name="landArea"
+              type="number"
+              min="0"
+              max="100000"
+              value={(form as any).landArea || ''}
+              onChange={handleInputChange}
+              placeholder="토지면적"
+              className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors h-12"
+            />
+            <span className="absolute right-3 top-9 text-gray-500">m²</span>
+          </div>
           <div className="relative">
             <div className="flex items-center justify-between">
               <label htmlFor="buildingArea" className="block text-sm font-medium text-gray-700 mb-1">建物面積</label>
@@ -432,7 +460,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
           <div className="relative">
             <div className="flex items-center justify-between">
               <label htmlFor="ownCapital" className="block text-sm font-medium text-gray-700 mb-1">자기자금</label>
@@ -468,6 +496,16 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
               className="border border-gray-300 p-3 pr-12 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors h-12"
             />
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
+          </div>
+          <div className="relative">
+            <div className="flex items-center justify-between" aria-label="평단가 (만원/평)">
+              <span className="block text-sm font-medium text-gray-700 mb-1">평단가 (만원/평)</span>
+              <InfoButton onClick={(e) => handleLabelClick('pricePerPyeong', e)} label="평단가" />
+            </div>
+            <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">{calcPricePerPyeong()}</span>
+              <span className="text-xs text-gray-500">만/평</span>
+            </div>
           </div>
           <div className="relative">
             <div className="block text-sm font-medium text-gray-700 mb-1">감가상각비</div>

@@ -7,7 +7,7 @@ export function normalizeForm(raw: any): FormInputData {
   const src = (raw && typeof raw === 'object') ? raw : {}
   // 문자열이어야 할 숫자 필드 목록 (FormInputData 정의 기반, 일부 확장 가능)
   const numericStringFields = [
-    'price','ownCapital','buildingPrice','grossYield','rent','occupancyRate','brokerageFee','registrationFee','acquisitionTax','stampDuty','loanFee','surveyFee','miscellaneousFees','otherMiscellaneousFees','rentFixedPeriod','rentAdjustmentInterval','rentAdjustmentRate','propertyTax','managementFeeRate','managementFee','managementCommissionRate','managementCommissionFee','maintenanceFeeRate','maintenanceFee','insurance','otherExpenses','rate','term','buildingAge','buildingArea'
+  'price','ownCapital','buildingPrice','grossYield','rent','occupancyRate','brokerageFee','registrationFee','acquisitionTax','stampDuty','loanFee','surveyFee','miscellaneousFees','otherMiscellaneousFees','rentFixedPeriod','rentAdjustmentInterval','rentAdjustmentRate','propertyTax','managementFeeRate','managementFee','managementCommissionRate','managementCommissionFee','maintenanceFeeRate','maintenanceFee','insurance','otherExpenses','rate','term','buildingAge','buildingArea','landArea'
   ]
   const merged: any = { ...base, ...src }
   numericStringFields.forEach(k => {

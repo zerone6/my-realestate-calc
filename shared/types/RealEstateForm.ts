@@ -51,6 +51,7 @@ export interface FormInputData {
     structure: string
     buildingAge: string
     buildingArea: string
+    landArea?: string
     ownCapital: string
     buildingPrice: string
     occupancyRate: string

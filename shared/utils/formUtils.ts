@@ -85,6 +85,7 @@ export function createDefaultFormData(): FormInputData {
         structure: '목조',
         buildingAge: '22',
         buildingArea: '100', // 건물면적 예시값
+    landArea: '0', // 신규: 토지면적 (㎡)
         ownCapital: '0', // 자기자금은 자동 계산될 예정
         buildingPrice: '0', // 매입가격 입력 시 자동 계산
         occupancyRate: '100', // 입주율 100%로 수정
