@@ -70,10 +70,9 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
         const newMuni = j?.data ?? null;
         setMuni(newMuni);
 
-        // 2. Determine initial state after muni is loaded
-        let initialStateRestored = false;
-        // Try restoring from sessionStorage if no prefill is active
+        // 2. Determine initial state after muni is loaded (simplified: removed redundant flag)
         if (!prefill) {
+          // No prefill: attempt to restore previous session state & data
           try {
             const rawState = sessionStorage.getItem(STORAGE_STATE);
             if (rawState) {
@@ -93,7 +92,6 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                 setFDistrict(s.fDistrict ?? '');
                 setSize(s.size ?? 20);
                 setPage(s.page ?? 0);
-                initialStateRestored = true;
               }
             }
             const rawData = sessionStorage.getItem(STORAGE_DATA);
@@ -101,12 +99,9 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
               setData(JSON.parse(rawData));
             }
           } catch { /* ignore session storage errors */ }
-        }
-
-        // If not restored from session, apply prefill if available
-        if (!initialStateRestored && prefill) {
+        } else {
+          // Prefill provided: apply it directly
           setPref(prefill.pref ?? '');
-          // Ensure cityId is valid for the given pref
           const cityIsValid = newMuni?.[prefill.pref ?? '']?.some((c: { id: string; name: string }) => c.id === prefill.cityId);
           setCityId(cityIsValid ? (prefill.cityId ?? '') : '');
           setFDistrict(prefill.district1 ?? '');

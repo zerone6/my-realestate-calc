@@ -6,6 +6,7 @@ import com.realestate.calc.dto.PropertyData;
 import com.realestate.calc.exception.AuthRequiredException;
 import com.realestate.calc.service.PropertyStorageService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
@@ -61,10 +62,9 @@ public class StorageController {
     public ResponseEntity<List<PropertyData>> loadData(@RequestParam String userId) {
         if (userId == null || userId.isBlank())
             throw new AuthRequiredException();
-        java.util.List<PropertyData> rows = service.load(userId);
+        List<PropertyData> rows = service.load(userId);
         if (!rows.isEmpty())
             return ResponseEntity.ok(rows);
-        // Fallback to legacy file
         Path dbDir = getDbDir();
         try {
             Files.createDirectories(dbDir);
@@ -72,12 +72,11 @@ public class StorageController {
             if (!userFile.exists()) {
                 return ResponseEntity.ok(new ArrayList<>());
             }
-            List<PropertyData> data = mapper.readValue(userFile, new TypeReference<List<PropertyData>>() {
-            });
+            List<PropertyData> data = mapper.readValue(userFile, new TypeReference<List<PropertyData>>() {});
             return ResponseEntity.ok(data);
         } catch (Exception io) {
             log.warn("Legacy file load failed userId={} err={}", userId, io.toString());
-            return ResponseEntity.ok(new ArrayList<>());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
         }
     }
 }
