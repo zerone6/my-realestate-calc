@@ -365,7 +365,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
         </div>
       </div>
 
-      <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md">
+  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md">
         <div className="p-4 lg:p-6 border-b">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">총 {data?.total ?? 0}건</div>
@@ -435,7 +435,8 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
           </div>
         </div>
         <div className="p-4 lg:p-6">
-          <div className="overflow-x-auto">
+          {/* Desktop / Tablet Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-gray-700">
                 <tr>
@@ -472,6 +473,38 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                 ))}
               </tbody>
             </table>
+          </div>
+          {/* Mobile Card List */}
+          <div className="md:hidden space-y-3">
+            {loading && <div className="text-center text-gray-500 py-6 text-sm">불러오는 중…</div>}
+            {!loading && filteredItems.length === 0 && <div className="text-center text-gray-500 py-6 text-sm">결과가 없습니다</div>}
+            {!loading && filteredItems.map(item => (
+              <button key={item.id} onClick={()=>openDetail(item.id)} className="w-full text-left bg-gray-50 active:bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">{item.year}</span>
+                  <span className="text-[10px] text-gray-400">{item.structure}</span>
+                </div>
+                <div className="font-semibold text-sm text-gray-800 truncate">{item.districtName || '-'} <span className="ml-1 text-[11px] font-normal text-gray-500">{item.type}</span></div>
+                <div className="flex justify-between items-end gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-500">거래가격(만)</span>
+                    <span className="text-sm font-medium text-blue-600">{formatManYen(item.tradePrice)}</span>
+                  </div>
+                  {item.exclusiveUnitPrice && (
+                    <div className="flex flex-col text-right">
+                      <span className="text-[10px] text-gray-500">평단가(만)</span>
+                      <span className="text-xs font-medium text-emerald-600">{formatManYenOneDecimal(item.exclusiveUnitPrice)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] text-gray-500 flex gap-2 flex-wrap">
+                  {item.floorPlan && <span>{item.floorPlan}</span>}
+                  {item.buildingYear && <span>{item.buildingYear}</span>}
+                  {item.landArea && <span>토지:{item.landArea}</span>}
+                  {item.exclusiveArea && <span>전용:{item.exclusiveArea}</span>}
+                </div>
+              </button>
+            ))}
           </div>
         </div>
   <div className="p-4 lg:p-6 border-t flex items-center justify-between">

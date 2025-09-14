@@ -414,7 +414,7 @@ function CalculatorApp() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col lg:flex-row">
       {/* 좌측 사이드바 - 부동산 물건 전체 정보 저장 영역 */}
-      <aside className="w-full lg:w-64 bg-white shadow-md lg:h-screen overflow-y-auto">
+  <aside className="w-full lg:w-64 bg-white shadow-md lg:h-screen overflow-y-auto">
         {/* 고정 제목 */}
         <div className="hidden lg:block px-4 pt-3 pb-2">
           <a href="/" className="group flex items-center gap-2 rounded-md px-2 py-1.5 bg-gradient-to-r from-blue-50 to-white border border-blue-100 hover:from-blue-100 hover:to-white hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" title="홈으로 이동" aria-label="홈으로 이동">
@@ -425,34 +425,32 @@ function CalculatorApp() {
         {/* 보이지 않는 구분선 역할 (테이블/그리드 대체) */}
         <div className="hidden lg:block h-2" aria-hidden="true" />
         {/* 모바일에서는 접히는 헤더 */}
-        <div className="lg:hidden">
+        <div className="lg:hidden sticky top-0 z-20">
           <button
             onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-            className="w-full p-4 text-left bg-gray-50 border-b flex items-center justify-between hover:bg-gray-100 transition-colors"
+            className="w-full px-4 py-3 text-left bg-white/90 backdrop-blur border-b flex items-center justify-between active:bg-gray-100 transition-colors"
+            aria-expanded={isMobileSidebarOpen}
+            aria-controls="mobile-saved-list"
           >
-            <div className="flex items-center space-x-2">
-              <span className="text-lg">📂</span>
-              <span className="font-medium text-gray-700">저장된 부동산</span>
-              <span className="text-sm text-gray-500">({savedItems.length})</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base">📂</span>
+              <span className="font-medium text-gray-800 text-sm">저장된 부동산</span>
+              <span className="text-xs text-gray-500">{savedItems.length}</span>
             </div>
-            <span className={`text-gray-400 transition-transform duration-200 ${isMobileSidebarOpen ? 'rotate-180' : ''
-              }`}>
-              ▼
-            </span>
+            <span className={`text-gray-400 transition-transform duration-200 ${isMobileSidebarOpen ? 'rotate-180' : ''}`}>▼</span>
           </button>
 
           {/* 모바일 접히는 콘텐츠 */}
-          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isMobileSidebarOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-            }`}>
-            <div className="p-4">
+          <div id="mobile-saved-list" className={`transition-all duration-300 ease-in-out overflow-hidden ${isMobileSidebarOpen ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="p-4 pt-2">
               {savedItems.length === 0 ? (
-                <p className="text-sm text-gray-500">저장된 부동산이 없습니다</p>
+                <p className="text-xs text-gray-500">저장된 부동산이 없습니다</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-1">
                   {savedItems.map((item) => (
-                    <li key={item.name} className="flex items-center justify-between bg-gray-50 rounded p-2 hover:bg-gray-100">
+                    <li key={item.name} className="flex items-center justify-between bg-gray-50 rounded-md px-3 py-2 hover:bg-gray-100 active:bg-gray-200">
                       <button
-                        className="flex-1 text-left cursor-pointer text-sm text-black hover:font-semibold hover:text-blue-600"
+                        className="flex-1 text-left cursor-pointer text-[13px] text-gray-800 font-medium hover:text-blue-600"
                         onClick={() => {
                           handleLoad(item.form)
                           setIsMobileSidebarOpen(false) // 선택 후 자동으로 접기
@@ -460,12 +458,12 @@ function CalculatorApp() {
                       >
                         <div className="flex items-center justify-between">
                           <span>{item.name}</span>
-                          <span className="text-xs text-gray-500 ml-2">{item.form?.walkMinutesToStation ? `${item.form.walkMinutesToStation}분` : ''}</span>
+                          <span className="text-[10px] text-gray-500 ml-2">{item.form?.walkMinutesToStation ? `${item.form.walkMinutesToStation}분` : ''}</span>
                         </div>
                       </button>
                       <button
                         onClick={() => handleDelete(item.name)}
-                        className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                        className="ml-2 p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md active:bg-red-100"
                         title="삭제"
                       >
                         🗑️
