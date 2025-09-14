@@ -5,6 +5,22 @@ import { createDefaultFormData, calculateTotalPurchaseCost } from '../../../shar
 import { validateFormData } from '../../../shared/utils/validation'
 import DescriptionTooltip from './DescriptionTooltip'
 
+// Accessible info button to show field descriptions (separate from label to satisfy a11y rules)
+function InfoButton({ onClick, label }: Readonly<{ onClick: (e: React.MouseEvent) => void, label: string }>) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ml-2 text-gray-400 hover:text-blue-600"
+      aria-label={`${label} 설명`}
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+      </svg>
+    </button>
+  )
+}
+
 interface FormProps {
   onCalculate: (form: FormInputData) => void
   onSave: (form: FormInputData) => void
@@ -72,6 +88,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
     }
   }, [form.structure]);
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
@@ -221,14 +238,13 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
         <h2 className="text-lg font-semibold text-blue-800 mb-4">🏠 물건 정보</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('name', e)}
-            >
-              물건 이름 *
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">물건 이름 *</label>
+              <InfoButton onClick={(e) => handleLabelClick('name', e)} label="물건 이름" />
+            </div>
             <input
               ref={nameInputRef}
+              id="name"
               name="name"
               value={form.name}
               onChange={handleInputChange}
@@ -237,13 +253,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             />
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('price', e)}
-            >
-              매입가 *
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">매입가 *</label>
+              <InfoButton onClick={(e) => handleLabelClick('price', e)} label="매입가" />
+            </div>
             <input
+              id="price"
               name="price"
               type="number"
               min="0"
@@ -256,7 +271,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">총매입비용</label>
+            <div className="block text-sm font-medium text-gray-700 mb-1">총매입비용</div>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">매입가 + 제비용 합계</span>
               <span className="text-lg font-bold text-blue-600">
@@ -266,15 +281,51 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
           </div>
         </div>
 
+        {/* 역/도보시간 라인 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <label htmlFor="station" className="block text-sm font-medium text-gray-700 mb-1">最寄り駅</label>
+              <InfoButton onClick={(e) => handleLabelClick('station', e)} label="역" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="station"
+                name="station"
+                value={form.station}
+                onChange={handleInputChange}
+                placeholder="역 이름"
+                className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors h-12"
+              />
+              <select
+                id="walkMinutesToStation"
+                name="walkMinutesToStation"
+                value={form.walkMinutesToStation !== undefined ? String(form.walkMinutesToStation) : ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  const num = v === '' ? undefined : parseInt(v, 10)
+                  setForm(prev => ({ ...prev, walkMinutesToStation: num }))
+                }}
+                className="border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-12"
+                aria-label="역에서 도보 분"
+              >
+                <option value="">도보 분</option>
+                {Array.from({ length: 20 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{m}분</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('grossYield', e)}
-            >
-              表面利回り
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="grossYield" className="block text-sm font-medium text-gray-700 mb-1">表面利回り</label>
+              <InfoButton onClick={(e) => handleLabelClick('grossYield', e)} label="표면이율" />
+            </div>
             <input
+              id="grossYield"
               name="grossYield"
               type="number"
               step="0.1"
@@ -289,13 +340,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
           </div>
           {/* 관리수수료 (신규) */}
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('managementCommissionRate', e)}
-            >
-              관리수수료율 (월간, %)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="managementCommissionRate" className="block text-sm font-medium text-gray-700 mb-1">관리수수료율 (월간, %)</label>
+              <InfoButton onClick={(e) => handleLabelClick('managementCommissionRate', e)} label="관리수수료율" />
+            </div>
             <input
+              id="managementCommissionRate"
               name="managementCommissionRate"
               type="number"
               min="0"
@@ -309,13 +359,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">%</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('managementCommissionFee', e)}
-            >
-              관리수수료 (월간, 万円)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="managementCommissionFee" className="block text-sm font-medium text-gray-700 mb-1">관리수수료 (월간, 万円)</label>
+              <InfoButton onClick={(e) => handleLabelClick('managementCommissionFee', e)} label="관리수수료" />
+            </div>
             <input
+              id="managementCommissionFee"
               name="managementCommissionFee"
               type="number"
               min="0"
@@ -328,13 +377,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('structure', e)}
-            >
-              구조
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="structure" className="block text-sm font-medium text-gray-700 mb-1">구조</label>
+              <InfoButton onClick={(e) => handleLabelClick('structure', e)} label="구조" />
+            </div>
             <select
+              id="structure"
               name="structure"
               value={form.structure}
               onChange={handleInputChange}
@@ -346,13 +394,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             </select>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('buildingAge', e)}
-            >
-              築年数
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="buildingAge" className="block text-sm font-medium text-gray-700 mb-1">築年数</label>
+              <InfoButton onClick={(e) => handleLabelClick('buildingAge', e)} label="築年数" />
+            </div>
             <select
+              id="buildingAge"
               name="buildingAge"
               value={form.buildingAge}
               onChange={handleInputChange}
@@ -366,13 +413,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             </select>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('buildingArea', e)}
-            >
-              建物面積
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="buildingArea" className="block text-sm font-medium text-gray-700 mb-1">建物面積</label>
+              <InfoButton onClick={(e) => handleLabelClick('buildingArea', e)} label="建物面積" />
+            </div>
             <input
+              id="buildingArea"
               name="buildingArea"
               type="number"
               min="0"
@@ -388,13 +434,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('ownCapital', e)}
-            >
-              자기자금
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="ownCapital" className="block text-sm font-medium text-gray-700 mb-1">자기자금</label>
+              <InfoButton onClick={(e) => handleLabelClick('ownCapital', e)} label="자기자금" />
+            </div>
             <input
+              id="ownCapital"
               name="ownCapital"
               type="number"
               min="0"
@@ -407,13 +452,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('buildingPrice', e)}
-            >
-              건물가격
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="buildingPrice" className="block text-sm font-medium text-gray-700 mb-1">건물가격</label>
+              <InfoButton onClick={(e) => handleLabelClick('buildingPrice', e)} label="건물가격" />
+            </div>
             <input
+              id="buildingPrice"
               name="buildingPrice"
               type="number"
               min="0"
@@ -426,7 +470,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">감가상각비</label>
+            <div className="block text-sm font-medium text-gray-700 mb-1">감가상각비</div>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">건물가격 ÷ 내용연수</span>
               <span className="text-lg font-bold text-blue-600">
@@ -435,13 +479,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             </div>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-              onClick={(e) => handleLabelClick('occupancyRate', e)}
-            >
-              입주율
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="occupancyRate" className="block text-sm font-medium text-gray-700 mb-1">입주율</label>
+              <InfoButton onClick={(e) => handleLabelClick('occupancyRate', e)} label="입주율" />
+            </div>
             <input
+              id="occupancyRate"
               name="occupancyRate"
               type="number"
               min="0"
@@ -461,13 +504,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
         <h2 className="text-lg font-semibold text-green-800 mb-4">💰 대출 정보</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-green-600 transition-colors"
-              onClick={(e) => handleLabelClick('rate', e)}
-            >
-              금리 (연간, %) *
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="rate" className="block text-sm font-medium text-gray-700 mb-1">금리 (연간, %) *</label>
+              <InfoButton onClick={(e) => handleLabelClick('rate', e)} label="금리" />
+            </div>
             <input
+              id="rate"
               name="rate"
               type="number"
               step="0.01"
@@ -481,13 +523,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">%</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-green-600 transition-colors"
-              onClick={(e) => handleLabelClick('term', e)}
-            >
-              대출 기간 (연간, 년) *
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="term" className="block text-sm font-medium text-gray-700 mb-1">대출 기간 (연간, 년) *</label>
+              <InfoButton onClick={(e) => handleLabelClick('term', e)} label="대출 기간" />
+            </div>
             <input
+              id="term"
               name="term"
               type="number"
               min="1"
@@ -500,13 +541,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">년</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-green-600 transition-colors"
-              onClick={(e) => handleLabelClick('startDate', e)}
-            >
-              대출 시작일
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">대출 시작일</label>
+              <InfoButton onClick={(e) => handleLabelClick('startDate', e)} label="대출 시작일" />
+            </div>
             <input
+              id="startDate"
               type="date"
               name="startDate"
               min={new Date().toISOString().split('T')[0]}
@@ -516,7 +556,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             />
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">대출 금액</label>
+            <div className="block text-sm font-medium text-gray-700 mb-1">대출 금액</div>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">총매입비용 - 자기자금</span>
               <span className="text-lg font-bold text-green-600">
@@ -532,13 +572,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
         <h2 className="text-lg font-semibold text-yellow-800 mb-4">📊 수익 및 유지비</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('rent', e)}
-            >
-              월세 수익 (월간, 万円) *
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="rent" className="block text-sm font-medium text-gray-700 mb-1">월세 수익 (월간, 万円) *</label>
+              <InfoButton onClick={(e) => handleLabelClick('rent', e)} label="월세 수익" />
+            </div>
             <input
+              id="rent"
               name="rent"
               type="number"
               min="0"
@@ -551,7 +590,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">연간 수익 (연간, 円)</label>
+            <div className="block text-sm font-medium text-gray-700 mb-1">연간 수익 (연간, 円)</div>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">월세수익 x 12</span>
               <span className="text-lg font-bold text-yellow-600">
@@ -563,13 +602,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('managementFee', e)}
-            >
-              관리비 (월간, 万円)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="managementFee" className="block text-sm font-medium text-gray-700 mb-1">관리비 (월간, 万円)</label>
+              <InfoButton onClick={(e) => handleLabelClick('managementFee', e)} label="관리비" />
+            </div>
             <input
+              id="managementFee"
               name="managementFee"
               type="number"
               min="0"
@@ -582,13 +620,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('managementFeeRate', e)}
-            >
-              관리비율 (월간, %)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="managementFeeRate" className="block text-sm font-medium text-gray-700 mb-1">관리비율 (월간, %)</label>
+              <InfoButton onClick={(e) => handleLabelClick('managementFeeRate', e)} label="관리비율" />
+            </div>
             <input
+              id="managementFeeRate"
               name="managementFeeRate"
               type="number"
               min="0"
@@ -602,13 +639,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">%</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('maintenanceFee', e)}
-            >
-              장기수선 적립 (월간, 万円)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="maintenanceFee" className="block text-sm font-medium text-gray-700 mb-1">장기수선 적립 (월간, 万円)</label>
+              <InfoButton onClick={(e) => handleLabelClick('maintenanceFee', e)} label="장기수선 적립" />
+            </div>
             <input
+              id="maintenanceFee"
               name="maintenanceFee"
               type="number"
               min="0"
@@ -621,13 +657,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('maintenanceFeeRate', e)}
-            >
-              장기수선 적립 비율 (월간, %)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="maintenanceFeeRate" className="block text-sm font-medium text-gray-700 mb-1">장기수선 적립 비율 (월간, %)</label>
+              <InfoButton onClick={(e) => handleLabelClick('maintenanceFeeRate', e)} label="장기수선 적립 비율" />
+            </div>
             <input
+              id="maintenanceFeeRate"
               name="maintenanceFeeRate"
               type="number"
               min="0"
@@ -644,13 +679,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('propertyTax', e)}
-            >
-              부동산세 (연간, 万円)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="propertyTax" className="block text-sm font-medium text-gray-700 mb-1">부동산세 (연간, 万円)</label>
+              <InfoButton onClick={(e) => handleLabelClick('propertyTax', e)} label="부동산세" />
+            </div>
             <input
+              id="propertyTax"
               name="propertyTax"
               type="number"
               min="0"
@@ -663,13 +697,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('insurance', e)}
-            >
-              보험료 (연간, 万円)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="insurance" className="block text-sm font-medium text-gray-700 mb-1">보험료 (연간, 万円)</label>
+              <InfoButton onClick={(e) => handleLabelClick('insurance', e)} label="보험료" />
+            </div>
             <input
+              id="insurance"
               name="insurance"
               type="number"
               min="0"
@@ -682,13 +715,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-yellow-600 transition-colors"
-              onClick={(e) => handleLabelClick('otherExpenses', e)}
-            >
-              기타 비용 (연간, 万円)
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="otherExpenses" className="block text-sm font-medium text-gray-700 mb-1">기타 비용 (연간, 万円)</label>
+              <InfoButton onClick={(e) => handleLabelClick('otherExpenses', e)} label="기타 비용" />
+            </div>
             <input
+              id="otherExpenses"
               name="otherExpenses"
               type="number"
               min="0"
@@ -701,7 +733,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">유지·장기수선 합계 (연간, 万円)</label>
+            <div className="block text-sm font-medium text-gray-700 mb-1">유지·장기수선 합계 (연간, 万円)</div>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">자동 계산</span>
               <span className="text-lg font-bold text-yellow-600">
@@ -717,13 +749,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
         <h2 className="text-lg font-semibold text-purple-800 mb-4">💼 제비용</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('brokerageFee', e)}
-            >
-              중개수수료
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="brokerageFee" className="block text-sm font-medium text-gray-700 mb-1">중개수수료</label>
+              <InfoButton onClick={(e) => handleLabelClick('brokerageFee', e)} label="중개수수료" />
+            </div>
             <input
+              id="brokerageFee"
               name="brokerageFee"
               type="number"
               min="0"
@@ -736,13 +767,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('registrationFee', e)}
-            >
-              등기비용
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="registrationFee" className="block text-sm font-medium text-gray-700 mb-1">등기비용</label>
+              <InfoButton onClick={(e) => handleLabelClick('registrationFee', e)} label="등기비용" />
+            </div>
             <input
+              id="registrationFee"
               name="registrationFee"
               type="number"
               min="0"
@@ -755,13 +785,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('acquisitionTax', e)}
-            >
-              취득세
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="acquisitionTax" className="block text-sm font-medium text-gray-700 mb-1">취득세</label>
+              <InfoButton onClick={(e) => handleLabelClick('acquisitionTax', e)} label="취득세" />
+            </div>
             <input
+              id="acquisitionTax"
               name="acquisitionTax"
               type="number"
               min="0"
@@ -774,13 +803,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('stampDuty', e)}
-            >
-              인지세
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="stampDuty" className="block text-sm font-medium text-gray-700 mb-1">인지세</label>
+              <InfoButton onClick={(e) => handleLabelClick('stampDuty', e)} label="인지세" />
+            </div>
             <input
+              id="stampDuty"
               name="stampDuty"
               type="number"
               min="0"
@@ -796,13 +824,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('loanFee', e)}
-            >
-              대출수수료
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="loanFee" className="block text-sm font-medium text-gray-700 mb-1">대출수수료</label>
+              <InfoButton onClick={(e) => handleLabelClick('loanFee', e)} label="대출수수료" />
+            </div>
             <input
+              id="loanFee"
               name="loanFee"
               type="number"
               min="0"
@@ -815,13 +842,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('surveyFee', e)}
-            >
-              감정비용
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="surveyFee" className="block text-sm font-medium text-gray-700 mb-1">감정비용</label>
+              <InfoButton onClick={(e) => handleLabelClick('surveyFee', e)} label="감정비용" />
+            </div>
             <input
+              id="surveyFee"
               name="surveyFee"
               type="number"
               min="0"
@@ -834,13 +860,12 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label
-              className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer hover:text-purple-600 transition-colors"
-              onClick={(e) => handleLabelClick('miscellaneousFees', e)}
-            >
-              잡비
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="miscellaneousFees" className="block text-sm font-medium text-gray-700 mb-1">잡비</label>
+              <InfoButton onClick={(e) => handleLabelClick('miscellaneousFees', e)} label="잡비" />
+            </div>
             <input
+              id="miscellaneousFees"
               name="miscellaneousFees"
               type="number"
               min="0"
@@ -853,7 +878,7 @@ export default function InputForm({ onCalculate, onSave, onDelete, defaultForm }
             <span className="absolute right-3 top-9 text-gray-500">万円</span>
           </div>
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">제비용 합계</label>
+            <div className="block text-sm font-medium text-gray-700 mb-1">제비용 합계</div>
             <div className="border border-gray-300 p-3 w-full rounded-lg bg-gray-50 h-12 flex items-center justify-between">
               <span className="text-sm text-gray-600">자동 계산</span>
               <span className="text-lg font-bold text-purple-600">

@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { fieldDescriptions } from '../../../shared/data/fieldDescriptions'
 import { FormInputData } from '../../../shared/types/RealEstateForm'
 import { createDefaultFormData, calculateTotalPurchaseCost } from '../../../shared/utils/formUtils'
+import { normalizeForm } from '../../../shared/utils/formNormalize'
 import { createInputChangeHandler } from '../hooks/useFormHandlers'
 import DescriptionTooltip from './DescriptionTooltip'
+import { PREF_NAMES } from '../../../shared/data/tradeLabels'
 
 function InfoButton({ onClick, label }: Readonly<{ onClick: (e: React.MouseEvent) => void, label: string }>) {
   return (
@@ -32,12 +34,17 @@ const LabeledNumber = (p: Readonly<{id:string; label:string; placeholder?:string
 )
 
 export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultForm, onCalculateComplete }: Readonly<FormProps>){
-  const [form,setForm]=useState<FormInputData>(()=>{try{const s=localStorage.getItem('realEstateForm'); if(s){const p=JSON.parse(s); if(p && p.name!==undefined) return p;} }catch{} return createDefaultFormData()})
+  const [form,setForm]=useState<FormInputData>(()=>{try{const s=localStorage.getItem('realEstateForm'); if(s){const p=JSON.parse(s); if(p && p.name!==undefined) return normalizeForm(p);} }catch{} return createDefaultFormData()})
   const [currentStep,setCurrentStep]=useState(()=>{try{const s=localStorage.getItem('realEstateFormStep'); if(s){const n=parseInt(s,10); if(n>=0&&n<=3) return n;}}catch{} return 0})
   const nameRef=useRef<HTMLInputElement>(null)
   const [tooltipVisible,setTooltipVisible]=useState(false)
   const [tooltipPosition,setTooltipPosition]=useState({x:0,y:0})
   const [tooltipDescription,setTooltipDescription]=useState('')
+  // Address dropdown data
+  const [muni, setMuni] = useState<Record<string, {id:string; name:string}[]>|null>(null)
+  const [loadingMuni, setLoadingMuni] = useState(false)
+  const [districtOptions, setDistrictOptions] = useState<string[]>([])
+  const [loadingDistricts, setLoadingDistricts] = useState(false)
 
   const steps=[{title:'물건 정보',key:'property'},{title:'제비용',key:'acquisition'},{title:'유지·장기수선',key:'maintenance'},{title:'대출 정보',key:'loan'}]
 
@@ -69,10 +76,53 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   // Persist
   useEffect(()=>{ try{localStorage.setItem('realEstateForm',JSON.stringify(form))}catch{} },[form])
   useEffect(()=>{ try{localStorage.setItem('realEstateFormStep',String(currentStep))}catch{} },[currentStep])
-  useEffect(()=>{ if(defaultForm){ setForm(defaultForm); try{localStorage.setItem('realEstateForm',JSON.stringify(defaultForm))}catch{} } },[defaultForm])
+  useEffect(()=>{ if(defaultForm){ const norm = normalizeForm(defaultForm); setForm(norm); try{localStorage.setItem('realEstateForm',JSON.stringify(norm))}catch{} } },[defaultForm])
+
+  // Load municipalities for dropdowns
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setLoadingMuni(true)
+        const r = await fetch('/api/mlit/municipalities-grouped')
+        const j = await r.json()
+        setMuni(j?.data ?? null)
+      } catch {
+        setMuni(null)
+      } finally {
+        setLoadingMuni(false)
+      }
+    }
+    run()
+  }, [])
+
+  // Load districts when city changes
+  useEffect(() => {
+    const load = async () => {
+      if (!form.cityId) { setDistrictOptions([]); return }
+      try {
+        setLoadingDistricts(true)
+        const res = await fetch(`/api/mlit/prices/districts?city=${encodeURIComponent(form.cityId)}`)
+        const list: string[] = await res.json()
+        const sorted = (list||[]).filter(Boolean).sort((a,b)=>a.localeCompare(b))
+        setDistrictOptions(sorted)
+        if (!form.district1 && sorted.length>0) {
+          setForm(f=>({ ...f, district1: sorted[0] }))
+        } else if (sorted.length === 0 && form.district1) {
+          // no districts available -> clear selected district1
+          setForm(f=>({ ...f, district1: '' }))
+        }
+      } catch {
+        setDistrictOptions([])
+      } finally {
+        setLoadingDistricts(false)
+      }
+    }
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.cityId])
 
   const handleInputChange=createInputChangeHandler(form,setForm)
-  const autoSave=()=>{ if(form.name.trim()) onAutoSave(form) }
+  const autoSave=()=>{ if(typeof form.name==='string' && form.name.trim()) onAutoSave(form) }
   const handleCalculate=()=>{ autoSave(); onCalculate(form); onCalculateComplete?.() }
   const handleReset=()=>{ if(confirm('초기화하시겠습니까?')) { const d=createDefaultFormData(); setForm(d); setCurrentStep(0); try{localStorage.removeItem('realEstateForm');localStorage.removeItem('realEstateFormStep')}catch{} } }
   const nextStep=()=>{ if(currentStep<steps.length-1){ autoSave(); setCurrentStep(c=>c+1) } }
@@ -88,16 +138,108 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
   const propertySection = (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-800">물건 정보</h3>
+      {/* 1행: 물건 이름, 전철역 */}
       <Row>
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">물건 이름</label>
           <input ref={nameRef} id="name" name="name" value={form.name} onChange={handleInputChange} placeholder="예: 신주쿠 아파트"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
         </div>
-  <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
-  <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (万円)','1000')} />
-  <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (万円)','0')} />
+        <div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="station" className="block text-sm font-medium text-gray-700 mb-1">전철역</label>
+            <InfoButton onClick={(e)=>handleLabelClick('station',e)} label="전철역" />
+          </div>
+          <div className="flex items-center space-x-2">
+            <input id="station" name="station" value={(form as any).station || ''} onChange={handleInputChange} placeholder="예: 네리마역"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+            <select
+              id="walkMinutesToStation"
+              name="walkMinutesToStation"
+              value={(form as any).walkMinutesToStation !== undefined ? String((form as any).walkMinutesToStation) : ''}
+              onChange={(e)=>{
+                const v = e.target.value
+                const num = v === '' ? undefined : parseInt(v,10)
+                setForm(f=> ({ ...f, walkMinutesToStation: num }))
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              aria-label="역에서 도보 분"
+            >
+              <option value="">도보 분</option>
+              {Array.from({ length: 20 }, (_, i) => i + 1).map(m => (
+                <option key={m} value={m}>{m}분</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </Row>
+
+      {/* 주소 구성: 현, 시구정촌, 세부1, 세부2 */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <label htmlFor="pref" className="block text-sm font-medium text-gray-700 mb-1">현</label>
+          <select id="pref" name="pref" value={(form as any).pref || ''} onChange={(e)=>{
+            handleInputChange(e);
+            // reset city/districts when pref changes
+            setForm(f=>({...f, cityId: '', district1: ''}))
+          }} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <option value="">-- 선택 --</option>
+            {muni && Object.keys(muni).sort((a,b)=>a.localeCompare(b)).map(code => (
+              <option key={code} value={code}>{PREF_NAMES[code] ?? code}</option>
+            ))}
+          </select>
+          {loadingMuni && <div className="text-xs text-gray-500 mt-1">행정구역 목록 불러오는 중…</div>}
+        </div>
+        <div>
+          <label htmlFor="cityId" className="block text-sm font-medium text-gray-700 mb-1">시구정촌</label>
+          <select id="cityId" name="cityId" value={(form as any).cityId || ''}
+            onChange={(e)=>{
+              handleInputChange(e)
+              // also prefill trade search even if no district1
+              try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: (e.target as HTMLSelectElement).value } })) }catch{}
+            }} disabled={!form.pref}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <option value="">-- 선택 --</option>
+            {form.pref && muni?.[form.pref]?.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="district1" className="block text-sm font-medium text-gray-700 mb-1">세부1</label>
+          <select id="district1" name="district1" value={(form as any).district1 || ''}
+            onChange={(e)=>{ handleInputChange(e); try{ window.dispatchEvent(new CustomEvent('tradeSearchPrefill', { detail: { pref: form.pref, cityId: form.cityId, district1: e.target.value } })) }catch{}}}
+            disabled={!form.cityId || districtOptions.length===0}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            {districtOptions.length>0 ? (
+              <>
+                <option value="">-- 선택 --</option>
+                {districtOptions.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </>
+            ) : (
+              <option value="">-- 없음 --</option>
+            )}
+          </select>
+          {loadingDistricts && <div className="text-xs text-gray-500 mt-1">세부1 불러오는 중…</div>}
+        </div>
+        <div>
+          <label htmlFor="district2" className="block text-sm font-medium text-gray-700 mb-1">세부2</label>
+          <input id="district2" name="district2" value={(form as any).district2 || ''} onChange={handleInputChange} placeholder="동/번지 등 자유 입력"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+        </div>
+      </div>
+
+      {/* 구분선 및 가격/자기자금/건물가격을 아래 블럭으로 이동 */}
+      <div className="border-t my-4" />
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        <LabeledNumber {...numberFieldProps('price','매입가 (万円)','6000')} />
+        <LabeledNumber {...numberFieldProps('ownCapital','자기자금 (万円)','1000')} />
+        <LabeledNumber {...numberFieldProps('buildingPrice','건물가격 (万円)','0')} />
+      </div>
+
+  {/* 가격 행 하단부터 기존 섹션 유지 */}
       <Row>
   <LabeledNumber {...numberFieldProps('grossYield','표면 이익율 (%)','6.0','0.1')} />
   <LabeledNumber {...numberFieldProps('rent','월세 수입 (万円)','25','0.1')} />
@@ -225,26 +367,38 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
             </button>
           )})}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
           <button
             type="button"
             onClick={()=> window.dispatchEvent(new CustomEvent('exportPdf'))}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-sm font-medium shadow"
           >PDF로 저장</button>
+          <button
+            type="button"
+            onClick={()=>{ try { window.dispatchEvent(new CustomEvent('explicitFormSave', { detail: { form } })) } catch {} }}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-medium shadow"
+          >물건 정보 저장</button>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {renderCurrent()}
       </div>
-
-      <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+      {/* Desktop action bar */}
+      <div className="hidden md:flex bg-gray-50 px-6 py-4 justify-between items-center">
         <button onClick={prevStep} disabled={currentStep===0} className={`px-4 py-2 rounded-md text-sm font-medium ${currentStep===0?'bg-gray-200 text-gray-400':'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>이전</button>
         <div className="flex gap-2">
           <button onClick={handleCalculate} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">계산하기</button>
           <button onClick={handleReset} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium">초기화</button>
         </div>
         <button onClick={nextStep} disabled={currentStep===steps.length-1} className={`px-4 py-2 rounded-md text-sm font-medium ${currentStep===steps.length-1?'bg-gray-200 text-gray-400':'bg-blue-600 hover:bg-blue-700 text-white'}`}>다음</button>
+      </div>
+      {/* Mobile sticky action bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t px-3 py-2 flex items-center gap-2 safe-bottom">
+        <button onClick={prevStep} disabled={currentStep===0} className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${currentStep===0?'bg-gray-200 text-gray-400':'bg-gray-200 active:bg-gray-300 text-gray-700'}`}>이전</button>
+        <button onClick={handleCalculate} className="flex-[1.4] px-3 py-2 bg-blue-600 active:bg-blue-700 text-white rounded-md text-xs font-semibold">계산</button>
+        <button onClick={handleReset} className="flex-1 px-3 py-2 bg-gray-600 active:bg-gray-700 text-white rounded-md text-xs font-medium">초기화</button>
+        <button onClick={nextStep} disabled={currentStep===steps.length-1} className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${currentStep===steps.length-1?'bg-gray-200 text-gray-400':'bg-emerald-600 active:bg-emerald-700 text-white'}`}>다음</button>
       </div>
 
       {tooltipVisible && (

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import LoginModal from './LoginModal';
 import SignUpModal from './SignUpModal';
 import { signUp } from '../../../shared/api/realEstateApi';
+import { getStoredUserId, persistUserId, clearStoredUserId } from '../../../shared/utils/authState';
 
 const AuthButtons = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -10,7 +11,13 @@ const AuthButtons = () => {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
 
   useEffect(() => {
-    // This is where you would check for an existing session
+    const existing = getStoredUserId();
+    if (existing) {
+      setIsLoggedIn(true);
+      setUserId(existing);
+      // Notify rest of app (e.g., CalculatorApp) about restored session
+      window.dispatchEvent(new CustomEvent('authChange', { detail: { loggedIn: true, userId: existing } }));
+    }
   }, []);
 
   const handleLogin = async (id: string, password: string) => {
@@ -18,7 +25,8 @@ const AuthButtons = () => {
       setIsLoggedIn(true);
       setUserId(id);
       setIsModalOpen(false);
-      // Dispatch event to load data
+      persistUserId(id);
+      // Broadcast login event
       window.dispatchEvent(new CustomEvent('authChange', { detail: { loggedIn: true, userId: id } }));
     } else {
       alert('Invalid credentials');
@@ -26,10 +34,11 @@ const AuthButtons = () => {
   };
 
   const handleLogout = () => {
-    // Dispatch event to save data before logging out
-    window.dispatchEvent(new CustomEvent('authChange', { detail: { loggedIn: false, userId: userId } }));
+    clearStoredUserId();
     setIsLoggedIn(false);
     setUserId(null);
+    // Broadcast logout event
+    window.dispatchEvent(new CustomEvent('authChange', { detail: { loggedIn: false, userId: null } }));
   };
 
   const handleSignUp = async (id: string, password: string) => {
