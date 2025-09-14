@@ -381,17 +381,24 @@ export default function MultiStepInputForm({ onCalculate, onAutoSave, defaultFor
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {renderCurrent()}
       </div>
-
-      <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+      {/* Desktop action bar */}
+      <div className="hidden md:flex bg-gray-50 px-6 py-4 justify-between items-center">
         <button onClick={prevStep} disabled={currentStep===0} className={`px-4 py-2 rounded-md text-sm font-medium ${currentStep===0?'bg-gray-200 text-gray-400':'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>이전</button>
         <div className="flex gap-2">
           <button onClick={handleCalculate} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">계산하기</button>
           <button onClick={handleReset} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium">초기화</button>
         </div>
         <button onClick={nextStep} disabled={currentStep===steps.length-1} className={`px-4 py-2 rounded-md text-sm font-medium ${currentStep===steps.length-1?'bg-gray-200 text-gray-400':'bg-blue-600 hover:bg-blue-700 text-white'}`}>다음</button>
+      </div>
+      {/* Mobile sticky action bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t px-3 py-2 flex items-center gap-2 safe-bottom">
+        <button onClick={prevStep} disabled={currentStep===0} className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${currentStep===0?'bg-gray-200 text-gray-400':'bg-gray-200 active:bg-gray-300 text-gray-700'}`}>이전</button>
+        <button onClick={handleCalculate} className="flex-[1.4] px-3 py-2 bg-blue-600 active:bg-blue-700 text-white rounded-md text-xs font-semibold">계산</button>
+        <button onClick={handleReset} className="flex-1 px-3 py-2 bg-gray-600 active:bg-gray-700 text-white rounded-md text-xs font-medium">초기화</button>
+        <button onClick={nextStep} disabled={currentStep===steps.length-1} className={`flex-1 px-3 py-2 rounded-md text-xs font-medium ${currentStep===steps.length-1?'bg-gray-200 text-gray-400':'bg-emerald-600 active:bg-emerald-700 text-white'}`}>다음</button>
       </div>
 
       {tooltipVisible && (
