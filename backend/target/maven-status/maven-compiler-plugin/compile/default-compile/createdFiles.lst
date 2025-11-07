@@ -1,4 +1,5 @@
 com/realestate/calc/controller/MlitDirectoryController.class
+com/realestate/calc/exception/ValidationException.class
 com/realestate/calc/mlit/dto/MunicipalityDto.class
 com/realestate/calc/mlit/MlitDbSyncService.class
 com/realestate/calc/mlit/MlitPriceBatchService.class
@@ -11,6 +12,7 @@ com/realestate/calc/controller/StorageController$1.class
 com/realestate/calc/controller/MlitPriceSearchController$Filters.class
 com/realestate/calc/dto/FormInputData.class
 com/realestate/calc/controller/MlitCacheController.class
+com/realestate/calc/service/PropertyStorageService.class
 com/realestate/calc/controller/StorageController.class
 com/realestate/calc/controller/CalculationController.class
 com/realestate/calc/mlit/StartupMunicipalityLoader.class
@@ -19,10 +21,13 @@ com/realestate/calc/service/PropertyStorageService$1.class
 com/realestate/calc/dto/UserCredential.class
 com/realestate/calc/mlit/MlitPriceIngestService$IngestResult.class
 com/realestate/calc/mlit/MunicipalityCacheService$1.class
+com/realestate/calc/exception/AuthRequiredException.class
 com/realestate/calc/admin/JsonToDbLoader.class
 com/realestate/calc/mlit/MlitSyncScheduler.class
 com/realestate/calc/mlit/MlitApiClient.class
+com/realestate/calc/api/ApiErrorResponse.class
 com/realestate/calc/mlit/dto/MunicipalitiesResponse.class
+com/realestate/calc/api/GlobalExceptionHandler.class
 com/realestate/calc/service/CalculationService$ScheduleParams.class
 com/realestate/calc/mlit/MlitPriceQueryService.class
 com/realestate/calc/mlit/MlitPriceIngestService.class

@@ -16,8 +16,8 @@
             "vmArgs": "-Dspring.profiles.active=dev",
             "preLaunchTask": "Start Full Stack Development"
         },
-            {
-                "type": "chrome",
+        {
+            "type": "chrome",
             "request": "launch",
             "name": "Open PCWeb in Chrome",
             "url": "http://localhost:5173",
