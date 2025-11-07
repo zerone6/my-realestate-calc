@@ -1,5 +1,5 @@
 # Maven 빌드 스테이지
-FROM maven:3.8-openjdk-17-slim AS build
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
 # 홈서버 환경을 위한 네트워크 설정 (더 강화된 설정)
@@ -36,7 +36,7 @@ RUN mvn clean package -DskipTests --batch-mode --fail-at-end --show-version \
     -Dmaven.resolver.transport=wagon
 
 # 실행 스테이지
-FROM openjdk:17-jdk-slim
+FROM openjdk:21-jdk-slim
 WORKDIR /app
 
 # 빌드된 JAR 파일 복사

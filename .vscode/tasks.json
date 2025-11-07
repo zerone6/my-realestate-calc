@@ -10,7 +10,10 @@
 				"dev"
 			],
 			"options": {
-				"cwd": "${workspaceFolder}/pcweb"
+				"cwd": "${workspaceFolder}/pcweb",
+				"env": {
+					"PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:PATH}"
+				}
 			},
 			"group": "build",
 			"presentation": {
@@ -40,7 +43,7 @@
 		{
 			"label": "Start Backend Server",
 			"type": "shell",
-			"command": "mvn",
+			"command": "./mvnw",
 			"args": [
 				"spring-boot:run"
 			],
@@ -140,47 +143,16 @@
 		{
 			"label": "Build Backend Once",
 			"type": "shell",
-			"command": "mvn",
+			"command": "./mvnw",
 			"args": [
 				"-q",
 				"-DskipTests",
 				"clean",
 				"package"
 			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$maven-stderr"
-			],
-			"group": "build"
-		},
-		{
-			"label": "Build Backend Once",
-			"type": "shell",
-			"command": "mvn",
-			"args": [
-				"-q",
-				"-DskipTests",
-				"clean",
-				"package"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$maven-stderr"
-			],
-			"group": "build"
-		},
-		{
-			"label": "Build Backend Once",
-			"type": "shell",
-			"command": "mvn",
-			"args": [
-				"-q",
-				"-DskipTests",
-				"-f",
-				"backend/pom.xml",
-				"clean",
-				"package"
-			],
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
 			"isBackground": false,
 			"problemMatcher": [
 				"$maven-stderr"
@@ -190,39 +162,31 @@
 		{
 			"label": "Run Backend (package+run)",
 			"type": "shell",
-			"command": "mvn",
+			"command": "./mvnw",
 			"args": [
 				"clean",
 				"package",
 				"spring-boot:run",
 				"-DskipTests"
 			],
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
 			"isBackground": false,
 			"group": "build"
 		},
 		{
 			"label": "Build Backend",
 			"type": "shell",
-			"command": "mvn",
+			"command": "./mvnw",
 			"args": [
 				"-q",
 				"-DskipTests",
 				"package"
 			],
-			"problemMatcher": [
-				"$maven"
-			],
-			"group": "build"
-		},
-		{
-			"label": "Build Backend",
-			"type": "shell",
-			"command": "mvn",
-			"args": [
-				"-q",
-				"-DskipTests",
-				"package"
-			],
+			"options": {
+				"cwd": "${workspaceFolder}/backend"
+			},
 			"problemMatcher": [
 				"$maven"
 			],

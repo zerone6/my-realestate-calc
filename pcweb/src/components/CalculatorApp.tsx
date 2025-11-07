@@ -72,7 +72,7 @@ function CalculatorApp() {
   const [activeTab, setActiveTab] = useState(0) // 현재 활성 탭
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false) // 모바일 사이드바 상태
   const [userId, setUserId] = useState<string | null>(null) // 로그인 사용자 ID
-  const [tradePrefill, setTradePrefill] = useState<{pref?:string; cityId?:string; district1?:string}|null>(null)
+  const [tradePrefill, setTradePrefill] = useState<{pref?:string; cityId?:string; district1?:string; name?:string; landArea?:string|number; buildingArea?:string|number; price?:string|number}|null>(null)
 
   // 탭 정보
   const tabs = [
@@ -160,11 +160,30 @@ function CalculatorApp() {
   useEffect(() => {
     const h = (e: any) => {
       const d = e?.detail || {}
-      setTradePrefill({ pref: d.pref, cityId: d.cityId, district1: d.district1 })
+  setTradePrefill({ pref: d.pref, cityId: d.cityId, district1: d.district1, name: d.name, landArea: d.landArea, buildingArea: d.buildingArea, price: d.price })
     }
     window.addEventListener('tradeSearchPrefill' as any, h as EventListener)
     return () => window.removeEventListener('tradeSearchPrefill' as any, h as EventListener)
   }, [])
+
+  // Fallback: derive tradePrefill from current active or calculated form when user switches tab
+  useEffect(() => {
+    if (activeTab !== 1) return
+    // Already have explicit tradePrefill from event
+    if (tradePrefill && (tradePrefill.pref || tradePrefill.cityId || tradePrefill.district1)) return
+    const source = activeForm || calculatedForm
+    if (!source) return
+    const maybePref = (source as any).pref
+    const maybeCity = (source as any).cityId
+    const maybeDistrict = (source as any).district1
+    const maybeName = (source as any).name
+    const maybeLand = (source as any).landArea
+    const maybeBuilding = (source as any).buildingArea
+    const maybePrice = (source as any).price
+    if (maybePref || maybeCity || maybeDistrict || maybeName || maybeLand || maybeBuilding || maybePrice) {
+      setTradePrefill({ pref: maybePref, cityId: maybeCity, district1: maybeDistrict, name: maybeName, landArea: maybeLand, buildingArea: maybeBuilding, price: maybePrice })
+    }
+  }, [activeTab, tradePrefill, activeForm, calculatedForm])
 
   // Manual explicit save button event (guarded by auth)
   useEffect(() => {
@@ -316,7 +335,7 @@ function CalculatorApp() {
     if (tabId === 1) {
       const f = activeForm
       if (f) {
-        setTradePrefill({ pref: f.pref, cityId: f.cityId, district1: f.district1 })
+  setTradePrefill({ pref: f.pref, cityId: f.cityId, district1: f.district1, name: f.name, landArea: (f as any).landArea, buildingArea: f.buildingArea, price: f.price })
       }
     }
     setActiveTab(tabId)

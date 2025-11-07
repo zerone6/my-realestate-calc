@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ListResponse, MuniGrouped } from '../../../shared/types/Trade'
 import { PREF_NAMES, TRADE_LABELS as LABELS } from '../../../shared/data/tradeLabels'
 
-type Prefill = { pref?: string; cityId?: string; district1?: string }
+type Prefill = { pref?: string; cityId?: string; district1?: string; name?: string; landArea?: string|number; buildingArea?: string|number; price?: string|number }
 
 export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefill }>) {
   // simple session cache keys
@@ -11,6 +11,17 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   // filters
   const [pref, setPref] = useState(prefill?.pref ?? '')
   const [cityId, setCityId] = useState(prefill?.cityId ?? '')
+  const [prefillName] = useState(prefill?.name || '')
+  const prefillLand = prefill?.landArea
+  const prefillBuilding = prefill?.buildingArea
+  const prefillUnitPrice = (()=>{
+    const land = parseFloat(String(prefill?.landArea || ''))
+    const price = parseFloat(String(prefill?.price || ''))
+    if(!land || !price) return ''
+    const p = land/3.3058
+    if(p<=0) return ''
+    return (price / p).toFixed(1)
+  })()
   const [station, setStation] = useState('')
   const [startYear, setStartYear] = useState('2000')
   const [endYear, setEndYear] = useState(String(new Date().getFullYear()))
@@ -22,14 +33,13 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   const [size, setSize] = useState(20)
 
   const [muni, setMuni] = useState<MuniGrouped | null>(null)
-  const [loadingMuni, setLoadingMuni] = useState(false)
   // List-level (client-side) filters (aligned to table)
   const [fYear, setFYear] = useState('')
   const [fType, setFType] = useState('')
   const [fFloorPlan, setFFloorPlan] = useState('')
   const [fBuildingYear, setFBuildingYear] = useState('')
   const [fStructure, setFStructure] = useState('')
-  const [fDistrict, setFDistrict] = useState('')
+  const [fDistrict, setFDistrict] = useState(prefill?.district1 ?? '')
 
   // dataset-wide facets for filter options
   const [facetYears, setFacetYears] = useState<string[]>([])
@@ -47,142 +57,148 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
 
   const area = useMemo(() => pref || '', [pref])
   const city = useMemo(() => cityId || '', [cityId])
-  const prefillPending = useRef(false)
+  
+  const didMountRef = useRef(false);
 
+  // Unified setup and initial fetch effect
   useEffect(() => {
-    // apply prefill if provided
-    if (prefill) {
-      if (prefill.pref) setPref(prefill.pref)
-      if (prefill.cityId) setCityId(prefill.cityId)
-      if (prefill.district1) setFDistrict(prefill.district1)
-      prefillPending.current = true
-    }
-    const run = async () => {
+    const init = async () => {
+      // 1. Fetch municipalities first, as they are needed for filters
       try {
-        setLoadingMuni(true)
-        const r = await fetch('/api/mlit/municipalities-grouped')
-        const j = await r.json()
-        setMuni(j?.data ?? null)
+        const r = await fetch('/api/mlit/municipalities-grouped');
+        const j = await r.json();
+        const newMuni = j?.data ?? null;
+        setMuni(newMuni);
+
+        // 2. Determine initial state after muni is loaded (simplified: removed redundant flag)
+        if (!prefill) {
+          // No prefill: attempt to restore previous session state & data
+          try {
+            const rawState = sessionStorage.getItem(STORAGE_STATE);
+            if (rawState) {
+              const s = JSON.parse(rawState);
+              if (s && typeof s === 'object') {
+                setPref(s.pref ?? '');
+                setCityId(s.cityId ?? '');
+                setStation(s.station ?? '');
+                setStartYear(s.startYear ?? '2000');
+                setEndYear(s.endYear ?? String(new Date().getFullYear()));
+                setPriceClassification(s.priceClassification ?? '');
+                setFYear(s.fYear ?? '');
+                setFType(s.fType ?? '');
+                setFFloorPlan(s.fFloorPlan ?? '');
+                setFBuildingYear(s.fBuildingYear ?? '');
+                setFStructure(s.fStructure ?? '');
+                setFDistrict(s.fDistrict ?? '');
+                setSize(s.size ?? 20);
+                setPage(s.page ?? 0);
+              }
+            }
+            const rawData = sessionStorage.getItem(STORAGE_DATA);
+            if (rawData) {
+              setData(JSON.parse(rawData));
+            }
+          } catch { /* ignore session storage errors */ }
+        } else {
+          // Prefill provided: apply it directly
+          setPref(prefill.pref ?? '');
+          const cityIsValid = newMuni?.[prefill.pref ?? '']?.some((c: { id: string; name: string }) => c.id === prefill.cityId);
+          setCityId(cityIsValid ? (prefill.cityId ?? '') : '');
+          setFDistrict(prefill.district1 ?? '');
+          setPage(0); // Always start at page 0 for prefill
+        }
+        
       } catch {
-        setMuni(null)
-      } finally {
-        setLoadingMuni(false)
-      }
-    }
-    run()
-  }, [prefill])
+        setMuni(null);
+      } finally { /* no-op */ }
+      
+      // 3. Mark mount as complete and trigger the first fetch via dependency change
+      didMountRef.current = true;
+    };
 
-  // Restore last results from session on mount to avoid blank state on tab switch
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_DATA)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed === 'object') {
-          setData(parsed)
-        }
-      }
-      const rawState = sessionStorage.getItem(STORAGE_STATE)
-      if (!prefill && rawState) {
-        const s = JSON.parse(rawState)
-        if (s && typeof s === 'object') {
-          if (typeof s.fYear === 'string') setFYear(s.fYear)
-          if (typeof s.fType === 'string') setFType(s.fType)
-          if (typeof s.fFloorPlan === 'string') setFFloorPlan(s.fFloorPlan)
-          if (typeof s.fBuildingYear === 'string') setFBuildingYear(s.fBuildingYear)
-          if (typeof s.fStructure === 'string') setFStructure(s.fStructure)
-          if (typeof s.fDistrict === 'string') setFDistrict(s.fDistrict)
-          if (typeof s.size === 'number') setSize(s.size)
-        }
-      }
-    } catch {
-      // ignore cache errors
-    }
+    init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // When prefill changed underlying scope or district, trigger a fetch once
-  useEffect(() => {
-    if (prefillPending.current) {
-      prefillPending.current = false
-  setPage(0)
-  fetchList({ page: 0 })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefill, pref, cityId, fDistrict])
-
-  // Ensure initial auto-search on tab open
-  useEffect(() => {
-    // If we have prefill coming in, skip the default fetch to avoid flashing defaults
-    const hasPrefill = !!(prefill && (prefill.pref || prefill.cityId))
-  if (!hasPrefill) fetchList({ page: 0 })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+  }, [prefill]);
+  
   useEffect(() => {
     // reset city when pref changes if current city doesn't match
     setCityId(prev => {
       if (typeof prev !== 'string') return ''
       if (!pref) return ''
       try {
-        return prev.startsWith(pref) ? prev : ''
+        const isValid = muni?.[pref]?.some(c => c.id === prev);
+        return isValid ? prev : '';
       } catch {
         return ''
       }
     })
-  }, [pref])
+  }, [pref, muni])
 
   const fetchList = async (opts?: { page?: number; size?: number }) => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
-  if (area) { params.append('area', area) }
-  if (city) { params.append('city', city) }
-  if (station) { params.append('station', station) }
-      // normalize year range
-  // If a list-level Year filter is set, narrow the request to that single year
-  const sy = parseInt((fYear || startYear || '0'), 10)
-  const ey = parseInt((fYear || endYear || '0'), 10)
-      const minY = Math.min(sy || 0, ey || 0)
-      const maxY = Math.max(sy || 0, ey || 0)
-  if (minY) { params.append('startYear', String(minY)) }
-  if (maxY) { params.append('endYear', String(maxY)) }
-  if (priceClassification) { params.append('priceClassification', priceClassification) }
-  // Apply list-level filters server-side so pagination reflects filtered dataset
-  // Apply list-level filters aligned to table
-  if (fType) { params.append('type', fType) }
-  if (fFloorPlan) { params.append('floorPlan', fFloorPlan) }
-  if (fBuildingYear) { params.append('buildingYear', fBuildingYear) }
-  if (fStructure) { params.append('structure', fStructure) }
-  if (fDistrict) { params.append('districtName', fDistrict) }
-  // Intentionally do NOT send list-level filters (year/quarter/pref/muni/district)
-  // These are applied client-side within the current page of results.
-  const effPage = opts?.page ?? page
-  const effSize = opts?.size ?? size
-  params.append('page', String(effPage))
-  params.append('size', String(effSize))
-  params.append('mode', 'SERVICE')
-  const res = await fetch(`/api/mlit/prices/list?${params.toString()}`)
-      const j: ListResponse = await res.json()
-      setData(j)
+      const effPage = opts?.page ?? page;
+      const effSize = opts?.size ?? size;
+
+      // Main filters
+      if (pref) params.append('area', pref);
+      if (cityId) params.append('city', cityId);
+      if (station) params.append('station', station);
+      if (priceClassification) params.append('priceClassification', priceClassification);
+      
+      // Year range - use list-level filter if set, otherwise use main filter
+      const sy = parseInt((fYear || startYear || '0'), 10);
+      const ey = parseInt((fYear || endYear || '0'), 10);
+      const minY = Math.min(sy || 0, ey || 0);
+      const maxY = Math.max(sy || 0, ey || 0);
+      if (minY) params.append('startYear', String(minY));
+      if (maxY) params.append('endYear', String(maxY));
+
+      // List-level filters
+      if (fType) params.append('type', fType);
+      if (fFloorPlan) params.append('floorPlan', fFloorPlan);
+      if (fBuildingYear) params.append('buildingYear', fBuildingYear);
+      if (fStructure) params.append('structure', fStructure);
+      if (fDistrict) params.append('districtName', fDistrict);
+
+      params.append('page', String(effPage));
+      params.append('size', String(effSize));
+      params.append('mode', 'SERVICE');
+
+      const res = await fetch(`/api/mlit/prices/list?${params.toString()}`);
+      if (!res.ok) throw new Error(`검색 실패: ${res.statusText}`);
+      
+      const j: ListResponse = await res.json();
+      setData(j);
+
+      // Cache the successful response and state
       try {
-        sessionStorage.setItem(STORAGE_DATA, JSON.stringify(j))
-        sessionStorage.setItem(STORAGE_STATE, JSON.stringify({ fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict, size }))
-      } catch {
-        // ignore cache errors
-      }
+        sessionStorage.setItem(STORAGE_DATA, JSON.stringify(j));
+        const stateToCache = {
+          pref, cityId, station, startYear, endYear, priceClassification,
+          fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict,
+          page: effPage, size: effSize,
+        };
+        sessionStorage.setItem(STORAGE_STATE, JSON.stringify(stateToCache));
+      } catch { /* ignore cache errors */ }
+
     } catch (e: any) {
-      setError(e?.message ?? '검색 실패')
+      setError(e?.message ?? '검색 실패');
+      setData(null); // Clear data on error
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
+  // This is now the primary trigger for data fetching.
   useEffect(() => {
-    fetchList()
+    if (!didMountRef.current) return; // Don't fetch on initial render before setup is complete
+    fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, size, fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict])
+  }, [page, size, pref, cityId, station, startYear, endYear, priceClassification, fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict]);
+
 
   const fetchFacets = async () => {
     setLoadingFacets(true)
@@ -199,17 +215,17 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
       if (minY) params.append('startYear', String(minY))
       if (maxY) params.append('endYear', String(maxY))
       if (priceClassification) params.append('priceClassification', String(priceClassification))
-  params.append('mode', 'SERVICE')
-  const res = await fetch(`/api/mlit/prices/facets?${params.toString()}`)
+      params.append('mode', 'SERVICE')
+      const res = await fetch(`/api/mlit/prices/facets?${params.toString()}`)
       const j = await res.json()
-    setFacetYears((j?.years || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
-  setFacetTypes((j?.types || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-  setFacetFloorPlans((j?.floorPlans || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-  setFacetBuildingYears((j?.buildingYears || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
-  setFacetStructures((j?.structures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-  setFacetDistricts((j?.districts || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetYears((j?.years || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
+      setFacetTypes((j?.types || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetFloorPlans((j?.floorPlans || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetBuildingYears((j?.buildingYears || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
+      setFacetStructures((j?.structures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetDistricts((j?.districts || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
     } catch {
-  setFacetYears([]); setFacetTypes([]); setFacetFloorPlans([]); setFacetBuildingYears([]); setFacetStructures([]); setFacetDistricts([])
+      setFacetYears([]); setFacetTypes([]); setFacetFloorPlans([]); setFacetBuildingYears([]); setFacetStructures([]); setFacetDistricts([])
     } finally {
       setLoadingFacets(false)
     }
@@ -217,24 +233,57 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
 
   // Refresh facets whenever scope changes (but not on page/size)
   useEffect(() => {
+    if (!didMountRef.current) return;
     fetchFacets()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pref, cityId, station, startYear, endYear, priceClassification])
 
-  const onSearch = () => { setPage(0); fetchList({ page: 0 }) }
-
-  // Auto-refresh list when request-level inputs change (no need to click 검색)
+  // Ensure selected city option is scrolled into view after prefill or muni load
   useEffect(() => {
-    if (prefillPending.current) return
-    setPage(0)
-  fetchList({ page: 0 })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pref, cityId, station, startYear, endYear, priceClassification])
+    if (!cityId || !muni) return;
+    // Use a timeout to ensure the options have been rendered before we try to set the value
+    setTimeout(() => {
+      try {
+        const sel = document.getElementById('city') as HTMLSelectElement | null;
+        if (!sel) return;
+        
+        const opt = Array.from(sel.options).find(o => o.value === cityId);
+        if (opt) {
+          sel.value = cityId; // Explicitly set the value on the element
+          // Scroll the option into view if the list is long
+          opt.scrollIntoView?.({ block: 'nearest' });
+        } else {
+          sel.value = ''; // Reset if the option is not found
+        }
+      } catch { /* ignore */ }
+    }, 0);
+  }, [cityId, muni]);
 
-  // If any list-level filter changes, reset to first page to keep pagination consistent
+  // Ensure fDistrict dropdown shows the correct value
   useEffect(() => {
-    setPage(0)
-  }, [fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict])
+    // Use a timeout to ensure the options have been rendered
+    setTimeout(() => {
+      const sel = document.getElementById('fDistrict') as HTMLSelectElement | null;
+      if (sel) {
+        sel.value = fDistrict;
+      }
+    }, 0);
+  }, [fDistrict]);
+
+  const onSearch = () => { 
+    if (page === 0) {
+      fetchList({ page: 0 });
+    } else {
+      setPage(0); 
+    }
+  }
+
+  // If any filter changes, reset to first page to keep pagination consistent
+  useEffect(() => {
+    if (didMountRef.current) {
+      setPage(0);
+    }
+  }, [pref, cityId, station, startYear, endYear, priceClassification, fYear, fType, fFloorPlan, fBuildingYear, fStructure, fDistrict]);
 
   const totalPages = useMemo(() => {
     if (!data) return 0
@@ -252,19 +301,8 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     }
   }
 
-  // Client-side filtering to ensure visible rows honor current filters even if server returns a broader set
-  const filteredItems = useMemo(() => {
-    const items = data?.items || []
-    return items.filter(it => {
-      if (fYear && String(it.year) !== String(fYear)) return false
-      if (fDistrict && String(it.districtName || '') !== String(fDistrict)) return false
-      if (fType && String(it.type || '') !== String(fType)) return false
-      if (fFloorPlan && String(it.floorPlan || '') !== String(fFloorPlan)) return false
-      if (fBuildingYear && String(it.buildingYear || '') !== String(fBuildingYear)) return false
-      if (fStructure && String(it.structure || '') !== String(fStructure)) return false
-      return true
-    })
-  }, [data, fYear, fDistrict, fType, fFloorPlan, fBuildingYear, fStructure])
+  // Client-side filtering is no longer needed as filters are sent to the server
+  const filteredItems = useMemo(() => data?.items || [], [data]);
 
   const formatManYen = (v: unknown) => {
     if (v === null || v === undefined) return ''
@@ -280,72 +318,60 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     return Math.round(n / 10000).toLocaleString()
   }
 
-  const formatManYenOneDecimal = (v: unknown) => {
-    if (v === null || v === undefined) return ''
-    let num: number
-    if (typeof v === 'string') num = parseFloat(v)
-    else if (typeof v === 'number') num = v
-    else return ''
-    if (!Number.isFinite(num)) return ''
-    const man = num / 10000
-    const floored = Math.floor(man * 10) / 10
-    return floored.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-  }
 
   return (
     <div>
       <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md p-4 lg:p-6 mb-6">
         <div className="text-base lg:text-lg font-semibold mb-3">거래 검색</div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-4">
           <div>
-            <label htmlFor="pref" className="block text-sm text-gray-600 mb-1">도도부현 (2자리)</label>
-            <select id="pref" className="w-full border rounded px-3 py-2" value={pref} onChange={e=>setPref(e.target.value)}>
-              <option value="">-- 선택 --</option>
-              {muni && Object.keys(muni).sort((a,b)=>a.localeCompare(b)).map(code => (
-                <option key={code} value={code}>{PREF_NAMES[code] ?? code}</option>
-              ))}
-            </select>
-            {loadingMuni && <div className="text-xs text-gray-500 mt-1">행정구역 목록 불러오는 중…</div>}
+            <div className="text-sm text-gray-600 mb-2">물건 개요</div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="border rounded px-3 py-2 bg-gray-50">
+                <div className="text-[11px] text-gray-500 mb-0.5">이름</div>
+                <div className="text-sm font-semibold text-gray-800 truncate">{prefillName || '-'}</div>
+              </div>
+              <div className="border rounded px-3 py-2 bg-gray-50">
+                <div className="text-[11px] text-gray-500 mb-0.5">토지면적(m²)</div>
+                <div className="text-sm font-medium text-gray-800">{prefillLand || '-'}</div>
+              </div>
+              <div className="border rounded px-3 py-2 bg-gray-50">
+                <div className="text-[11px] text-gray-500 mb-0.5">건물면적(m²)</div>
+                <div className="text-sm font-medium text-gray-800">{prefillBuilding || '-'}</div>
+              </div>
+              <div className="border rounded px-3 py-2 bg-gray-50">
+                <div className="text-[11px] text-gray-500 mb-0.5">평단가(만원/평)</div>
+                <div className="text-sm font-semibold text-blue-600">{prefillUnitPrice || '-'}</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <label htmlFor="city" className="block text-sm text-gray-600 mb-1">시/구/정/촌 (5자리)</label>
-            <select id="city" className="w-full border rounded px-3 py-2" value={cityId} onChange={e=>setCityId(e.target.value)} disabled={!pref}>
-              <option value="">-- 선택 --</option>
-              {pref && muni?.[pref]?.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="station" className="block text-sm text-gray-600 mb-1">역 코드(선택)</label>
-            <input id="station" className="w-full border rounded px-3 py-2" value={station} onChange={e=>setStation(e.target.value)} placeholder="003785" />
-          </div>
-          <div>
-            <label htmlFor="startYear" className="block text-sm text-gray-600 mb-1">시작 연도</label>
-            <select id="startYear" className="w-full border rounded px-3 py-2" value={startYear} onChange={e=>setStartYear(e.target.value)}>
-              <option value="">-- 전체 --</option>
-              {Array.from({length: new Date().getFullYear()-2000+1}, (_,i)=> new Date().getFullYear()-i).map(y=> (
-                <option key={y} value={String(y)}>{y}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="endYear" className="block text-sm text-gray-600 mb-1">종료 연도</label>
-            <select id="endYear" className="w-full border rounded px-3 py-2" value={endYear} onChange={e=>setEndYear(e.target.value)}>
-              <option value="">-- 전체 --</option>
-              {Array.from({length: new Date().getFullYear()-2000+1}, (_,i)=> new Date().getFullYear()-i).map(y=> (
-                <option key={y} value={String(y)}>{y}</option>
-              ))}
-            </select>
-          </div>
-          {/* Remove request-time quarter filter; quarter filtering is provided within the list below */}
-          <div>
-            <label htmlFor="priceClassification" className="block text-sm text-gray-600 mb-1">가격 구분</label>
-            <select id="priceClassification" className="w-full border rounded px-3 py-2" value={priceClassification} onChange={e=>setPriceClassification(e.target.value)}>
-              <option value="">-- 전체 --</option>
-              <option value="01">取引価格</option>
-              <option value="02">成約価格</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            <div>
+              <label htmlFor="startYear" className="block text-sm text-gray-600 mb-1">시작 연도</label>
+              <select id="startYear" className="w-full border rounded px-3 py-2" value={startYear} onChange={e=>setStartYear(e.target.value)}>
+                <option value="">-- 전체 --</option>
+                {Array.from({length: new Date().getFullYear()-2000+1}, (_,i)=> new Date().getFullYear()-i).map(y=> (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="endYear" className="block text-sm text-gray-600 mb-1">종료 연도</label>
+              <select id="endYear" className="w-full border rounded px-3 py-2" value={endYear} onChange={e=>setEndYear(e.target.value)}>
+                <option value="">-- 전체 --</option>
+                {Array.from({length: new Date().getFullYear()-2000+1}, (_,i)=> new Date().getFullYear()-i).map(y=> (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="priceClassification" className="block text-sm text-gray-600 mb-1">가격 구분</label>
+              <select id="priceClassification" className="w-full border rounded px-3 py-2" value={priceClassification} onChange={e=>setPriceClassification(e.target.value)}>
+                <option value="">-- 전체 --</option>
+                <option value="01">取引価格</option>
+                <option value="02">成約価格</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -371,8 +397,8 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             <div className="text-sm text-gray-600">총 {data?.total ?? 0}건</div>
             {data?.source && <div className="text-xs px-2 py-1 bg-gray-100 rounded">source: {data.source}</div>}
           </div>
-          {/* List-level filters aligned to table */}
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-6 gap-3">
+          {/* List-level filters aligned to table (including 행정구역 선택 이동) */}
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-8 gap-3">
             <div>
               <label htmlFor="fYear" className="block text-xs text-gray-600 mb-1">연도</label>
               <select id="fYear" className="w-full border rounded px-2 py-1" value={fYear} onChange={e=>setFYear(e.target.value)}>
@@ -382,6 +408,24 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                 ))}
               </select>
               {loadingFacets && <div className="text-[10px] text-gray-500 mt-1">연도 로딩…</div>}
+            </div>
+            <div>
+              <label htmlFor="pref" className="block text-xs text-gray-600 mb-1">도도부현</label>
+              <select id="pref" className="w-full border rounded px-2 py-1" value={pref} onChange={e=>setPref(e.target.value)}>
+                <option value="">전체</option>
+                {muni && Object.keys(muni).sort((a,b)=>a.localeCompare(b)).map(code => (
+                  <option key={code} value={code}>{PREF_NAMES[code] ?? code}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="city" className="block text-xs text-gray-600 mb-1">시구정촌</label>
+              <select id="city" className="w-full border rounded px-2 py-1" value={cityId} onChange={e=>setCityId(e.target.value)} disabled={!pref}>
+                <option value="">전체</option>
+                {pref && muni?.[pref]?.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="fDistrict" className="block text-xs text-gray-600 mb-1">세부1</label>
@@ -430,7 +474,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
           </div>
     <div className="mt-2 flex items-center gap-3">
-  <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setFYear(''); setFDistrict(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
+  <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setPref(''); setCityId(''); setFYear(''); setFDistrict(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
       <div className="text-xs text-gray-600">표시 {filteredItems.length}건</div>
           </div>
         </div>
@@ -444,7 +488,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                   <th className="px-3 py-2 text-left">세부1</th>
                   <th className="px-3 py-2 text-left">유형</th>
                   <th className="px-3 py-2 text-right">거래가격(만엔)</th>
-                  <th className="px-3 py-2 text-right">평단가(만엔)</th>
+                  <th className="px-3 py-2 text-right">평단가(만엔, 토지)</th>
                   <th className="px-3 py-2 text-left">평면</th>
                   <th className="px-3 py-2 text-left">면적(토지/전용)</th>
                   <th className="px-3 py-2 text-left">건축연도</th>
@@ -464,7 +508,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                     <td className="px-3 py-2">{item.districtName}</td>
                     <td className="px-3 py-2">{item.type}</td>
                     <td className="px-3 py-2 text-right">{formatManYen(item.tradePrice)}</td>
-        <td className="px-3 py-2 text-right">{item.exclusiveUnitPrice ? formatManYenOneDecimal(item.exclusiveUnitPrice) : ''}</td>
+  <td className="px-3 py-2 text-right">{(item.tradePrice && item.landArea) ? (()=>{ const priceYen=parseFloat(String(item.tradePrice))||0; const land=parseFloat(String(item.landArea))||0; if(priceYen>0&&land>0){ const p=land/3.3058; if(p>0){ const priceMan=priceYen/10000; return (priceMan/p).toFixed(1) } } return '' })() : ''}</td>
                     <td className="px-3 py-2">{item.floorPlan}</td>
                     <td className="px-3 py-2">{[item.landArea, item.exclusiveArea].filter(Boolean).join(' / ')}</td>
                     <td className="px-3 py-2">{item.buildingYear}</td>
@@ -490,10 +534,10 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                     <span className="text-[10px] text-gray-500">거래가격(만)</span>
                     <span className="text-sm font-medium text-blue-600">{formatManYen(item.tradePrice)}</span>
                   </div>
-                  {item.exclusiveUnitPrice && (
+                  {(item.tradePrice && item.landArea) && (
                     <div className="flex flex-col text-right">
-                      <span className="text-[10px] text-gray-500">평단가(만)</span>
-                      <span className="text-xs font-medium text-emerald-600">{formatManYenOneDecimal(item.exclusiveUnitPrice)}</span>
+                      <span className="text-[10px] text-gray-500">평단가(만/토지)</span>
+                      <span className="text-xs font-medium text-emerald-600">{(()=>{ const priceYen=parseFloat(String(item.tradePrice))||0; const land=parseFloat(String(item.landArea))||0; if(priceYen>0&&land>0){ const p=land/3.3058; if(p>0){ const priceMan=priceYen/10000; return (priceMan/p).toFixed(1)} } return '' })()}</span>
                     </div>
                   )}
                 </div>
