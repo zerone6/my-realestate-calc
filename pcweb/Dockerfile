@@ -18,8 +18,8 @@ RUN npm run build
 WORKDIR /app/pcweb
 COPY pcweb/package*.json ./
 
-# Install pcweb dependencies
-RUN npm ci
+# Install pcweb dependencies (npm install since no package-lock.json)
+RUN npm install
 
 # Copy pcweb source code
 COPY pcweb/ ./
