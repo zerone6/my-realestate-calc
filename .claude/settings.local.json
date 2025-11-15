@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn spring-boot:run:*)",
+      "Bash(java:*)",
+      "Bash(curl:*)",
+      "Bash(chmod:*)",
+      "Bash(./mvnw:*)",
+      "Bash(/usr/libexec/java_home:*)",
+      "Bash(npm --version:*)",
+      "Bash(node --version:*)",
+      "Bash($SHELL -l -c 'which npm')",
+      "Bash($SHELL -l -c 'which node')",
+      "Bash(if [ -d \"$HOME/.nvm\" ])",
+      "Bash(then echo \"nvm found at $HOME/.nvm\")",
+      "Bash(elif [ -d \"/opt/homebrew/bin\" ])",
+      "Bash(then ls -la /opt/homebrew/bin/)",
+      "Bash(else echo \"No common Node.js locations found\")",
+      "Bash(fi)",
+      "Bash(/opt/homebrew/bin/npm --version)",
+      "Bash(PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\" npm run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
