@@ -36,7 +36,7 @@ RUN mvn clean package -DskipTests --batch-mode --fail-at-end --show-version \
     -Dmaven.resolver.transport=wagon
 
 # 실행 스테이지
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jdk
 WORKDIR /app
 
 # 빌드된 JAR 파일 복사
