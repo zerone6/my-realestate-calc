@@ -549,13 +549,13 @@ function CalculatorApp() {
                   <button
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
-                    className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors ${activeTab === tab.id
+                    className={`flex flex-col items-center justify-center px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium rounded-t-lg transition-colors min-w-[60px] sm:min-w-0 ${activeTab === tab.id
                         ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                       }`}
                   >
-                    <span className="text-lg">{tab.icon}</span>
-                    <span>{tab.name}</span>
+                    <span className="text-2xl sm:text-lg mb-1 sm:mb-0">{tab.icon}</span>
+                    <span className="text-[10px] sm:text-sm leading-tight whitespace-nowrap">{tab.name}</span>
                   </button>
                 ))}
               </div>
