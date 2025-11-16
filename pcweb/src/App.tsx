@@ -8,7 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 
 function App() {
   return (
-    <Router>
+    <Router basename="/realestate">
       <Header />
       <Routes>
         <Route path="/" element={<LandingPage />} />
