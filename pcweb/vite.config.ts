@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     port: 5173,
     host: true,
     proxy: {
-  '/api/': {
+      '/api/': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false
@@ -26,5 +26,6 @@ export default defineConfig({
       }
     }
   },
-  base: '/realestate/'
-})
+  // 개발: '/' (로컬), 프로덕션: '/realestate/' (GHCR 배포)
+  base: mode === 'production' ? '/realestate/' : '/'
+}))
