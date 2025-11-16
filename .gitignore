@@ -8,11 +8,20 @@ database/
 *.war
 *.ear
 /target/
+**/target/
+target/
 /build/
+**/build/
+build/
 /.gradle/
 /out/
 !gradle/wrapper/gradle-wrapper.jar
 *.log
+
+# === Secrets (IMPORTANT: Never commit) ===
+secrets.properties
+**/secrets.properties
+backend/target/classes/secrets.properties
 
 # === JavaScript / Node.js ===
 node_modules/
