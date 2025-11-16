@@ -37,7 +37,7 @@ nano .env  # 또는 vi, code 등 원하는 에디터 사용
 GITHUB_REPOSITORY=homegroup/my-realestate-calc
 
 # Database Configuration (개발 서버)
-DB_URL=jdbc:postgresql://192.168.50.88:5432/realestate_dev
+DB_URL=jdbc:postgresql://192.168.50.88:5432/realestate
 DB_USERNAME=realestate_user
 DB_PASSWORD=dev_password_here
 
@@ -51,7 +51,7 @@ SPRING_PROFILES_ACTIVE=dev
 GITHUB_REPOSITORY=homegroup/my-realestate-calc
 
 # Database Configuration (프로덕션 서버)
-DB_URL=jdbc:postgresql://192.168.50.100:5432/realestate_prod
+DB_URL=jdbc:postgresql://192.168.50.100:5432/realestate
 DB_USERNAME=realestate_user
 DB_PASSWORD=strong_production_password
 
@@ -109,7 +109,7 @@ nano .env
 #### 2. .env 파일 작성 (프로덕션용)
 ```env
 GITHUB_REPOSITORY=homegroup/my-realestate-calc
-DB_URL=jdbc:postgresql://your-prod-db-server:5432/realestate_prod
+DB_URL=jdbc:postgresql://your-prod-db-server:5432/realestate
 DB_USERNAME=realestate_user
 DB_PASSWORD=your_production_password
 SPRING_PROFILES_ACTIVE=prod
