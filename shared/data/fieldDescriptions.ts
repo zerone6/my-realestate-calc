@@ -9,14 +9,6 @@ export const fieldDescriptions: Record<string, FieldDescription> = {
         label: "물건 이름",
         description: "부동산 투자 대상 물건의 이름을 입력하세요. 예: 아파트명, 빌딩명 등"
     },
-    station: {
-        label: "전철역",
-        description: "가까운 전철역 이름을 입력하세요. 예: 네리마역"
-    },
-    address: {
-        label: "주소",
-        description: "물건의 상세 주소를 입력하세요. 예: 도쿄도 네리마구 ..."
-    },
     price: {
         label: "매입가",
         description: "부동산을 매입할 때 지불하는 가격을 만엔 단위로 입력하세요. 토지와 건물을 포함한 총 매입 가격입니다."

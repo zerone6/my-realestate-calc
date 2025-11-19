@@ -38,20 +38,11 @@ export interface RealEstateFormData {
 export interface FormInputData {
     // 첫 번째 블럭: 물건 정보
     name: string
-    station: string
-    // 도보시간(역까지) - 분 단위, 1..20 선택 가능. 현재는 저장만 함.
-    walkMinutesToStation?: number
-    // 주소 구성: 현, 시구정촌, 세부1, 세부2
-    pref: string
-    cityId: string
-    district1: string
-    district2: string
     price: string
     grossYield: string
     structure: string
     buildingAge: string
     buildingArea: string
-    landArea?: string
     ownCapital: string
     buildingPrice: string
     occupancyRate: string

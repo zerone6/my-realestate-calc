@@ -3,7 +3,7 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Debug Spring Boot Backend",
+            "name": "Debug Spring Boot Application",
             "request": "launch",
             "mainClass": "com.realestate.calc.RealEstateCalcApplication",
             "projectName": "calc",
@@ -11,28 +11,10 @@
             "env": {
                 "SPRING_PROFILES_ACTIVE": "dev"
             },
-            "console": "integratedTerminal",
+            "args": "",
+            "console": "internalConsole",
             "stopOnEntry": false,
-            "vmArgs": "-Dspring.profiles.active=dev",
-            "preLaunchTask": "Start Full Stack Development"
-        },
-        {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Open PCWeb in Chrome",
-            "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}/pcweb/src",
-            "preLaunchTask": "Start Full Stack Development"
-        }
-    ],
-    "compounds": [
-        {
-            "name": "Full Stack Dev (Backend + Frontend)",
-            "configurations": [
-                "Debug Spring Boot Backend",
-                "Open PCWeb in Chrome"
-            ],
-            "preLaunchTask": "Start Full Stack Development"
+            "vmArgs": "-Dspring.profiles.active=dev"
         }
     ]
 }

@@ -1,15 +1,29 @@
 {
-    "java.configuration.runtimes": [
-        {
-            "name": "JavaSE-17",
-            "path": "/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home",
-            "default": true
-        },
-        {
-            "name": "JavaSE-18",
-            "path": "/Library/Java/JavaVirtualMachines/jdk-18.0.2.1.jdk/Contents/Home"
-        }
-    ],
-    "java.jdt.ls.java.home": "/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home",
-    "java.compile.nullAnalysis.mode": "automatic"
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/*.pyo": true,
+    "**/node_modules": true
+  },
+  "editor.formatOnSave": true,
+  "python.defaultInterpreterPath": "backend/venv/bin/python",
+  "eslint.validate": [
+    "javascript",
+    "typescript",
+    "typescriptreact"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.debug.settings.hotCodeReplace": "auto",
+  "java.debug.settings.console": "internalConsole",
+  "java.project.sourcePaths": [
+    "backend/src/main/java"
+  ],
+  "java.project.outputPath": "backend/target/classes",
+  "java.project.referencedLibraries": [
+    "backend/target/dependency/*.jar"
+  ]
 }

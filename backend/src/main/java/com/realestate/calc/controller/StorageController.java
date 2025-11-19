@@ -3,15 +3,11 @@ package com.realestate.calc.controller;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.realestate.calc.dto.PropertyData;
-import com.realestate.calc.exception.AuthRequiredException;
-import com.realestate.calc.service.PropertyStorageService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,13 +21,6 @@ public class StorageController {
     private static final String BACKEND_DIR_NAME = "backend";
     private static final String DATABASE_DIR_NAME = "database";
     private static final String JSON_EXT = ".json";
-    private final PropertyStorageService service;
-    private static final Logger log = LoggerFactory.getLogger(StorageController.class);
-    private final ObjectMapper mapper = new ObjectMapper();
-
-    public StorageController(PropertyStorageService service) {
-        this.service = service;
-    }
 
     private static Path getDbDir() {
         Path cwd = Paths.get(System.getProperty("user.dir"));
@@ -44,39 +33,48 @@ public class StorageController {
 
     @PostMapping("/save")
     public ResponseEntity<Void> saveData(@RequestParam String userId, @RequestBody List<PropertyData> data) {
-        if (userId == null || userId.isBlank())
-            throw new AuthRequiredException();
-        Path dbDir = getDbDir();
         try {
+            Path dbDir = getDbDir();
             Files.createDirectories(dbDir);
             File userFile = dbDir.resolve(userId + JSON_EXT).toFile();
+            ObjectMapper mapper = new ObjectMapper();
             mapper.writeValue(userFile, data);
-        } catch (Exception io) {
-            log.warn("Legacy file backup failed userId={} err={}", userId, io.toString());
+            return ResponseEntity.ok().build();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
         }
-        service.save(userId, data);
-        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/load")
     public ResponseEntity<List<PropertyData>> loadData(@RequestParam String userId) {
-        if (userId == null || userId.isBlank())
-            throw new AuthRequiredException();
-        List<PropertyData> rows = service.load(userId);
-        if (!rows.isEmpty())
-            return ResponseEntity.ok(rows);
-        Path dbDir = getDbDir();
         try {
+            Path dbDir = getDbDir();
             Files.createDirectories(dbDir);
             File userFile = dbDir.resolve(userId + JSON_EXT).toFile();
+            ObjectMapper mapper = new ObjectMapper();
             if (!userFile.exists()) {
-                return ResponseEntity.ok(new ArrayList<>());
+                // Legacy fallback: files previously saved under backend/database
+                Path cwd = Paths.get(System.getProperty("user.dir"));
+                Path legacyDir = (cwd.getFileName() != null && cwd.getFileName().toString().equals(BACKEND_DIR_NAME))
+                        ? cwd.resolve(DATABASE_DIR_NAME)
+                        : cwd.resolve(BACKEND_DIR_NAME).resolve(DATABASE_DIR_NAME);
+                File legacyFile = legacyDir.resolve(userId + JSON_EXT).toFile();
+                if (!legacyFile.exists()) {
+                    return ResponseEntity.ok(new ArrayList<>());
+                }
+                List<PropertyData> legacyData = mapper.readValue(legacyFile, new TypeReference<List<PropertyData>>() {
+                });
+                // Migrate to new location
+                mapper.writeValue(userFile, legacyData);
+                return ResponseEntity.ok(legacyData);
             }
-            List<PropertyData> data = mapper.readValue(userFile, new TypeReference<List<PropertyData>>() {});
+            List<PropertyData> data = mapper.readValue(userFile, new TypeReference<List<PropertyData>>() {
+            });
             return ResponseEntity.ok(data);
-        } catch (Exception io) {
-            log.warn("Legacy file load failed userId={} err={}", userId, io.toString());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
         }
     }
 }
