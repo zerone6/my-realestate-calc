@@ -10,10 +10,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = { "http://localhost:5173", "http://localhost:5174", "http://localhost:5175" })
+@Slf4j
 public class AuthController {
     private static final String BACKEND_DIR_NAME = "backend";
     private static final String DATABASE_DIR_NAME = "database";
@@ -48,7 +50,7 @@ public class AuthController {
             mapper.writeValue(userFile.toFile(), credential);
             return ResponseEntity.status(HttpStatus.CREATED).body("Signed up");
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Signup failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Signup failed");
         }
     }

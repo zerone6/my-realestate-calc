@@ -13,10 +13,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/storage")
 @CrossOrigin(origins = { "http://localhost:5173", "http://localhost:5174", "http://localhost:5175" })
+@Slf4j
 public class StorageController {
     private static final String BACKEND_DIR_NAME = "backend";
     private static final String DATABASE_DIR_NAME = "database";
@@ -41,7 +43,7 @@ public class StorageController {
             mapper.writeValue(userFile, data);
             return ResponseEntity.ok().build();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Save failed", e);
             return ResponseEntity.status(500).build();
         }
     }
@@ -73,7 +75,7 @@ public class StorageController {
             });
             return ResponseEntity.ok(data);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Load failed", e);
             return ResponseEntity.status(500).build();
         }
     }

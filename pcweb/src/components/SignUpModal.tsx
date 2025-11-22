@@ -23,8 +23,9 @@ const SignUpModal = ({ isOpen, onClose, onSuccess, onSubmit }: SignUpModalProps)
       onSuccess?.(id);
       onClose();
       alert('Sign up completed. Please sign in.');
-    } catch (err: any) {
-      alert(err?.message || 'Sign up failed');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Sign up failed';
+      alert(msg);
     } finally {
       setLoading(false);
     }

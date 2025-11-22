@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ListResponse, MuniGrouped } from '../../../shared/types/Trade'
 import { PREF_NAMES, TRADE_LABELS as LABELS } from '../../../shared/data/tradeLabels'
 
-type Prefill = { pref?: string; cityId?: string; district1?: string; name?: string; landArea?: string|number; buildingArea?: string|number; price?: string|number }
+type Prefill = { pref?: string; cityId?: string; district1?: string; name?: string; landArea?: string | number; buildingArea?: string | number; price?: string | number }
 
 export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefill }>) {
   // simple session cache keys
@@ -14,12 +14,12 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
   const [prefillName] = useState(prefill?.name || '')
   const prefillLand = prefill?.landArea
   const prefillBuilding = prefill?.buildingArea
-  const prefillUnitPrice = (()=>{
+  const prefillUnitPrice = (() => {
     const land = parseFloat(String(prefill?.landArea || ''))
     const price = parseFloat(String(prefill?.price || ''))
-    if(!land || !price) return ''
-    const p = land/3.3058
-    if(p<=0) return ''
+    if (!land || !price) return ''
+    const p = land / 3.3058
+    if (p <= 0) return ''
     return (price / p).toFixed(1)
   })()
   const [station, setStation] = useState('')
@@ -57,7 +57,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
 
   const area = useMemo(() => pref || '', [pref])
   const city = useMemo(() => cityId || '', [cityId])
-  
+
   const didMountRef = useRef(false);
 
   // Unified setup and initial fetch effect
@@ -107,11 +107,11 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
           setFDistrict(prefill.district1 ?? '');
           setPage(0); // Always start at page 0 for prefill
         }
-        
+
       } catch {
         setMuni(null);
       } finally { /* no-op */ }
-      
+
       // 3. Mark mount as complete and trigger the first fetch via dependency change
       didMountRef.current = true;
     };
@@ -119,7 +119,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
-  
+
   useEffect(() => {
     // reset city when pref changes if current city doesn't match
     setCityId(prev => {
@@ -147,7 +147,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
       if (cityId) params.append('city', cityId);
       if (station) params.append('station', station);
       if (priceClassification) params.append('priceClassification', priceClassification);
-      
+
       // Year range - use list-level filter if set, otherwise use main filter
       const sy = parseInt((fYear || startYear || '0'), 10);
       const ey = parseInt((fYear || endYear || '0'), 10);
@@ -169,7 +169,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
 
       const res = await fetch(`/api/mlit/prices/list?${params.toString()}`);
       if (!res.ok) throw new Error(`검색 실패: ${res.statusText}`);
-      
+
       const j: ListResponse = await res.json();
       setData(j);
 
@@ -184,8 +184,9 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
         sessionStorage.setItem(STORAGE_STATE, JSON.stringify(stateToCache));
       } catch { /* ignore cache errors */ }
 
-    } catch (e: any) {
-      setError(e?.message ?? '검색 실패');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '검색 실패';
+      setError(msg);
       setData(null); // Clear data on error
     } finally {
       setLoading(false);
@@ -218,12 +219,12 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
       params.append('mode', 'SERVICE')
       const res = await fetch(`/api/mlit/prices/facets?${params.toString()}`)
       const j = await res.json()
-      setFacetYears((j?.years || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
-      setFacetTypes((j?.types || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-      setFacetFloorPlans((j?.floorPlans || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-      setFacetBuildingYears((j?.buildingYears || []).map((v: any) => String(v)).sort((a: string,b: string)=>Number(b)-Number(a)))
-      setFacetStructures((j?.structures || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
-      setFacetDistricts((j?.districts || []).map((v: any) => String(v)).sort((a: string,b: string)=>a.localeCompare(b)))
+      setFacetYears((j?.years || []).map((v: unknown) => String(v)).sort((a: string, b: string) => Number(b) - Number(a)))
+      setFacetTypes((j?.types || []).map((v: unknown) => String(v)).sort((a: string, b: string) => a.localeCompare(b)))
+      setFacetFloorPlans((j?.floorPlans || []).map((v: unknown) => String(v)).sort((a: string, b: string) => a.localeCompare(b)))
+      setFacetBuildingYears((j?.buildingYears || []).map((v: unknown) => String(v)).sort((a: string, b: string) => Number(b) - Number(a)))
+      setFacetStructures((j?.structures || []).map((v: unknown) => String(v)).sort((a: string, b: string) => a.localeCompare(b)))
+      setFacetDistricts((j?.districts || []).map((v: unknown) => String(v)).sort((a: string, b: string) => a.localeCompare(b)))
     } catch {
       setFacetYears([]); setFacetTypes([]); setFacetFloorPlans([]); setFacetBuildingYears([]); setFacetStructures([]); setFacetDistricts([])
     } finally {
@@ -246,7 +247,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
       try {
         const sel = document.getElementById('city') as HTMLSelectElement | null;
         if (!sel) return;
-        
+
         const opt = Array.from(sel.options).find(o => o.value === cityId);
         if (opt) {
           sel.value = cityId; // Explicitly set the value on the element
@@ -270,11 +271,11 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
     }, 0);
   }, [fDistrict]);
 
-  const onSearch = () => { 
+  const onSearch = () => {
     if (page === 0) {
       fetchList({ page: 0 });
     } else {
-      setPage(0); 
+      setPage(0);
     }
   }
 
@@ -348,25 +349,25 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
             <div>
               <label htmlFor="startYear" className="block text-sm text-gray-600 mb-1">시작 연도</label>
-              <select id="startYear" className="w-full border rounded px-3 py-2" value={startYear} onChange={e=>setStartYear(e.target.value)}>
+              <select id="startYear" className="w-full border rounded px-3 py-2" value={startYear} onChange={e => setStartYear(e.target.value)}>
                 <option value="">-- 전체 --</option>
-                {Array.from({length: new Date().getFullYear()-2000+1}, (_,i)=> new Date().getFullYear()-i).map(y=> (
+                {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(y => (
                   <option key={y} value={String(y)}>{y}</option>
                 ))}
               </select>
             </div>
             <div>
               <label htmlFor="endYear" className="block text-sm text-gray-600 mb-1">종료 연도</label>
-              <select id="endYear" className="w-full border rounded px-3 py-2" value={endYear} onChange={e=>setEndYear(e.target.value)}>
+              <select id="endYear" className="w-full border rounded px-3 py-2" value={endYear} onChange={e => setEndYear(e.target.value)}>
                 <option value="">-- 전체 --</option>
-                {Array.from({length: new Date().getFullYear()-2000+1}, (_,i)=> new Date().getFullYear()-i).map(y=> (
+                {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => new Date().getFullYear() - i).map(y => (
                   <option key={y} value={String(y)}>{y}</option>
                 ))}
               </select>
             </div>
             <div>
               <label htmlFor="priceClassification" className="block text-sm text-gray-600 mb-1">가격 구분</label>
-              <select id="priceClassification" className="w-full border rounded px-3 py-2" value={priceClassification} onChange={e=>setPriceClassification(e.target.value)}>
+              <select id="priceClassification" className="w-full border rounded px-3 py-2" value={priceClassification} onChange={e => setPriceClassification(e.target.value)}>
                 <option value="">-- 전체 --</option>
                 <option value="01">取引価格</option>
                 <option value="02">成約価格</option>
@@ -379,7 +380,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
           <button onClick={onSearch} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-60" disabled={loading}>검색</button>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-sm text-gray-600">페이지당</span>
-            <select className="border rounded px-2 py-1" value={size} onChange={e=>{ const v = parseInt(e.target.value,10); setSize(v); setPage(0); }}>
+            <select className="border rounded px-2 py-1" value={size} onChange={e => { const v = parseInt(e.target.value, 10); setSize(v); setPage(0); }}>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={30}>30</option>
@@ -391,7 +392,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
         </div>
       </div>
 
-  <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md">
+      <div className="max-w-full lg:max-w-[1440px] mx-auto bg-white rounded-xl shadow-md">
         <div className="p-4 lg:p-6 border-b">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">총 {data?.total ?? 0}건</div>
@@ -401,7 +402,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
           <div className="mt-3 grid grid-cols-1 md:grid-cols-8 gap-3">
             <div>
               <label htmlFor="fYear" className="block text-xs text-gray-600 mb-1">연도</label>
-              <select id="fYear" className="w-full border rounded px-2 py-1" value={fYear} onChange={e=>setFYear(e.target.value)}>
+              <select id="fYear" className="w-full border rounded px-2 py-1" value={fYear} onChange={e => setFYear(e.target.value)}>
                 <option value="">전체</option>
                 {facetYears.map(y => (
                   <option key={y} value={y}>{y}</option>
@@ -411,16 +412,16 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
             <div>
               <label htmlFor="pref" className="block text-xs text-gray-600 mb-1">도도부현</label>
-              <select id="pref" className="w-full border rounded px-2 py-1" value={pref} onChange={e=>setPref(e.target.value)}>
+              <select id="pref" className="w-full border rounded px-2 py-1" value={pref} onChange={e => setPref(e.target.value)}>
                 <option value="">전체</option>
-                {muni && Object.keys(muni).sort((a,b)=>a.localeCompare(b)).map(code => (
+                {muni && Object.keys(muni).sort((a, b) => a.localeCompare(b)).map(code => (
                   <option key={code} value={code}>{PREF_NAMES[code] ?? code}</option>
                 ))}
               </select>
             </div>
             <div>
               <label htmlFor="city" className="block text-xs text-gray-600 mb-1">시구정촌</label>
-              <select id="city" className="w-full border rounded px-2 py-1" value={cityId} onChange={e=>setCityId(e.target.value)} disabled={!pref}>
+              <select id="city" className="w-full border rounded px-2 py-1" value={cityId} onChange={e => setCityId(e.target.value)} disabled={!pref}>
                 <option value="">전체</option>
                 {pref && muni?.[pref]?.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -429,7 +430,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
             <div>
               <label htmlFor="fDistrict" className="block text-xs text-gray-600 mb-1">세부1</label>
-              <select id="fDistrict" className="w-full border rounded px-2 py-1" value={fDistrict} onChange={e=>setFDistrict(e.target.value)}>
+              <select id="fDistrict" className="w-full border rounded px-2 py-1" value={fDistrict} onChange={e => setFDistrict(e.target.value)}>
                 <option value="">전체</option>
                 {facetDistricts.map(d => (
                   <option key={d} value={d}>{d}</option>
@@ -438,7 +439,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
             <div>
               <label htmlFor="fType" className="block text-xs text-gray-600 mb-1">유형</label>
-              <select id="fType" className="w-full border rounded px-2 py-1" value={fType} onChange={e=>setFType(e.target.value)}>
+              <select id="fType" className="w-full border rounded px-2 py-1" value={fType} onChange={e => setFType(e.target.value)}>
                 <option value="">전체</option>
                 {facetTypes.map(t => (
                   <option key={t} value={t}>{t}</option>
@@ -447,7 +448,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
             <div>
               <label htmlFor="fFloorPlan" className="block text-xs text-gray-600 mb-1">평면</label>
-              <select id="fFloorPlan" className="w-full border rounded px-2 py-1" value={fFloorPlan} onChange={e=>setFFloorPlan(e.target.value)}>
+              <select id="fFloorPlan" className="w-full border rounded px-2 py-1" value={fFloorPlan} onChange={e => setFFloorPlan(e.target.value)}>
                 <option value="">전체</option>
                 {facetFloorPlans.map(fp => (
                   <option key={fp} value={fp}>{fp}</option>
@@ -456,7 +457,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
             <div>
               <label htmlFor="fBuildingYear" className="block text-xs text-gray-600 mb-1">건축연도</label>
-              <select id="fBuildingYear" className="w-full border rounded px-2 py-1" value={fBuildingYear} onChange={e=>setFBuildingYear(e.target.value)}>
+              <select id="fBuildingYear" className="w-full border rounded px-2 py-1" value={fBuildingYear} onChange={e => setFBuildingYear(e.target.value)}>
                 <option value="">전체</option>
                 {facetBuildingYears.map(y => (
                   <option key={y} value={y}>{y}</option>
@@ -465,7 +466,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             </div>
             <div>
               <label htmlFor="fStructure" className="block text-xs text-gray-600 mb-1">구조</label>
-              <select id="fStructure" className="w-full border rounded px-2 py-1" value={fStructure} onChange={e=>setFStructure(e.target.value)}>
+              <select id="fStructure" className="w-full border rounded px-2 py-1" value={fStructure} onChange={e => setFStructure(e.target.value)}>
                 <option value="">전체</option>
                 {facetStructures.map(s => (
                   <option key={s} value={s}>{s}</option>
@@ -473,9 +474,9 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
               </select>
             </div>
           </div>
-    <div className="mt-2 flex items-center gap-3">
-  <button className="text-xs px-2 py-1 border rounded" onClick={()=>{ setPref(''); setCityId(''); setFYear(''); setFDistrict(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
-      <div className="text-xs text-gray-600">표시 {filteredItems.length}건</div>
+          <div className="mt-2 flex items-center gap-3">
+            <button className="text-xs px-2 py-1 border rounded" onClick={() => { setPref(''); setCityId(''); setFYear(''); setFDistrict(''); setFType(''); setFFloorPlan(''); setFBuildingYear(''); setFStructure(''); setPage(0); }}>필터 초기화</button>
+            <div className="text-xs text-gray-600">표시 {filteredItems.length}건</div>
           </div>
         </div>
         <div className="p-4 lg:p-6">
@@ -499,16 +500,16 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                 {loading && (
                   <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">불러오는 중…</td></tr>
                 )}
-        {!loading && (filteredItems.length === 0) && (
+                {!loading && (filteredItems.length === 0) && (
                   <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">결과가 없습니다</td></tr>
                 )}
-  {filteredItems.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>openDetail(item.id)}>
+                {filteredItems.map(item => (
+                  <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(item.id)}>
                     <td className="px-3 py-2">{item.year}</td>
                     <td className="px-3 py-2">{item.districtName}</td>
                     <td className="px-3 py-2">{item.type}</td>
                     <td className="px-3 py-2 text-right">{formatManYen(item.tradePrice)}</td>
-  <td className="px-3 py-2 text-right">{(item.tradePrice && item.landArea) ? (()=>{ const priceYen=parseFloat(String(item.tradePrice))||0; const land=parseFloat(String(item.landArea))||0; if(priceYen>0&&land>0){ const p=land/3.3058; if(p>0){ const priceMan=priceYen/10000; return (priceMan/p).toFixed(1) } } return '' })() : ''}</td>
+                    <td className="px-3 py-2 text-right">{(item.tradePrice && item.landArea) ? (() => { const priceYen = parseFloat(String(item.tradePrice)) || 0; const land = parseFloat(String(item.landArea)) || 0; if (priceYen > 0 && land > 0) { const p = land / 3.3058; if (p > 0) { const priceMan = priceYen / 10000; return (priceMan / p).toFixed(1) } } return '' })() : ''}</td>
                     <td className="px-3 py-2">{item.floorPlan}</td>
                     <td className="px-3 py-2">{[item.landArea, item.exclusiveArea].filter(Boolean).join(' / ')}</td>
                     <td className="px-3 py-2">{item.buildingYear}</td>
@@ -523,7 +524,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             {loading && <div className="text-center text-gray-500 py-6 text-sm">불러오는 중…</div>}
             {!loading && filteredItems.length === 0 && <div className="text-center text-gray-500 py-6 text-sm">결과가 없습니다</div>}
             {!loading && filteredItems.map(item => (
-              <button key={item.id} onClick={()=>openDetail(item.id)} className="w-full text-left bg-gray-50 active:bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 flex flex-col gap-1">
+              <button key={item.id} onClick={() => openDetail(item.id)} className="w-full text-left bg-gray-50 active:bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 flex flex-col gap-1">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-500">{item.year}</span>
                   <span className="text-[10px] text-gray-400">{item.structure}</span>
@@ -537,7 +538,7 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
                   {(item.tradePrice && item.landArea) && (
                     <div className="flex flex-col text-right">
                       <span className="text-[10px] text-gray-500">평단가(만/토지)</span>
-                      <span className="text-xs font-medium text-emerald-600">{(()=>{ const priceYen=parseFloat(String(item.tradePrice))||0; const land=parseFloat(String(item.landArea))||0; if(priceYen>0&&land>0){ const p=land/3.3058; if(p>0){ const priceMan=priceYen/10000; return (priceMan/p).toFixed(1)} } return '' })()}</span>
+                      <span className="text-xs font-medium text-emerald-600">{(() => { const priceYen = parseFloat(String(item.tradePrice)) || 0; const land = parseFloat(String(item.landArea)) || 0; if (priceYen > 0 && land > 0) { const p = land / 3.3058; if (p > 0) { const priceMan = priceYen / 10000; return (priceMan / p).toFixed(1) } } return '' })()}</span>
                     </div>
                   )}
                 </div>
@@ -551,11 +552,11 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
             ))}
           </div>
         </div>
-  <div className="p-4 lg:p-6 border-t flex items-center justify-between">
-          <div className="text-sm text-gray-600">페이지 { (data?.page ?? page) + 1 } / { totalPages }</div>
+        <div className="p-4 lg:p-6 border-t flex items-center justify-between">
+          <div className="text-sm text-gray-600">페이지 {(data?.page ?? page) + 1} / {totalPages}</div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1 border rounded disabled:opacity-50" onClick={()=>setPage(p=>Math.max(0, p-1))} disabled={page<=0 || loading}>이전</button>
-            <button className="px-3 py-1 border rounded disabled:opacity-50" onClick={()=>setPage(p=>Math.min(totalPages-1, p+1))} disabled={loading || (data? (data.page+1)>=totalPages: false)}>다음</button>
+            <button className="px-3 py-1 border rounded disabled:opacity-50" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page <= 0 || loading}>이전</button>
+            <button className="px-3 py-1 border rounded disabled:opacity-50" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={loading || (data ? (data.page + 1) >= totalPages : false)}>다음</button>
           </div>
         </div>
       </div>
@@ -566,10 +567,10 @@ export default function TradeSearchPage({ prefill }: Readonly<{ prefill?: Prefil
           <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-lg font-semibold">상세 정보</div>
-              <button onClick={()=>setDetail(null)} className="text-gray-500 hover:text-gray-800">닫기</button>
+              <button onClick={() => setDetail(null)} className="text-gray-500 hover:text-gray-800">닫기</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[70vh] overflow-auto">
-              {Object.entries(detail).map(([k,v]) => (
+              {Object.entries(detail).map(([k, v]) => (
                 <div key={k} className="border rounded p-2">
                   <div className="text-xs text-gray-500 mb-1">{LABELS[k] ?? k}</div>
                   <div className="text-sm break-words">{JSON.stringify(v, null, 0)}</div>

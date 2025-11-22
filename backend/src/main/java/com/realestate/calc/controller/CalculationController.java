@@ -7,10 +7,12 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/calculation")
 @CrossOrigin(origins = { "http://localhost:5173", "http://localhost:5174", "http://localhost:5175" }) // Vite 개발 서버 포트들
+@Slf4j
 public class CalculationController {
 
     @Autowired
@@ -22,8 +24,7 @@ public class CalculationController {
             CalculationResult result = calculationService.calculate(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            System.err.println("ERROR - Exception during calculation: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Exception during calculation", e);
             return ResponseEntity.badRequest().build();
         }
     }
